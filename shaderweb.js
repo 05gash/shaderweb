@@ -4,18 +4,18 @@ function getShader(canvasName, bufferName){
     return fetch(uri)
     .then(
         response =>
-            response.ok ? ({bufferName : bufferName, shader : response.text()}) : undefined
+            response.ok ? response.text() : undefined
     );
 }
 
 /*
- * returns a tagged array, each element has a bufferName and a shader'
+ * returns a tagged array, each element has a name and a shader'
  * each represents a render pass. The main buffer uses the screen as a rendertarget
- * 
 */
 async function getShaders(canvasName){
     const shaderNames = ['main', 'buffer1', 'common'];
-    const shaders = await Promise.all(shadersNames.map(shader => getShader(canvasName, shader)));
+    const shaderVals = await Promise.all(shaderNames.map(shader => getShader(canvasName, shader)));
+    const shaders = shaderNames.map( (name, index) => ({name : name, shader: shaderVals[index]}) );
     return shaders
 }
 
@@ -93,7 +93,8 @@ gl.compileShader(vertShader);
 doCheck(vertShader, vertCode);
 //Fragment shader source code
 
-var shaderToy = await getShaders(canvasName);
+var shaders = await getShaders(canvasName);
+var mainShader = shaders.find( shader => shader.name == 'main');
 
 var fragCode = `
 	#extension GL_OES_standard_derivatives : enable
@@ -102,7 +103,7 @@ var fragCode = `
 	uniform float iTime;
 	// *TODO* uniform samplerXX iChannel;
 
-` + shaderToy + 
+` + mainShader.shader + 
 `
 
 	void main(void) {
