@@ -160,28 +160,49 @@ gl.enableVertexAttribArray(coord);
 var d = new Date();
 var start = d.getTime();
 
-function drawStrip(){
+function drawStrip(path){
 	//we want to bind the shader program we're using
 
-	const width = 0.05;
+	const width = 0.03;
 
-	var path = [
-		$V([0.1, 0.2]), 
-		$V([0.1, 0.7]),
-		$V([0.9, 0.9])
-		];
-
+	//openGL screen space coordinates
 	var strip = [];
 	//compute triangle strip coords
-	for (i = 0; i < path.length - 1; i++){
+	for (i = 0; i < path.length; i++){
 		if(i == 0){
+			console.log("begin");
 			a = path[i]
 			b = path[i+1]
-			line = Line.create(a, b.subtract(a));
-
+			line = (b.subtract(a)).toUnitVector();
+			perpendicular = line.rotate(Math.PI/2, Vector.Zero(2));
+			strip = strip.concat(a.add(perpendicular.x(width)).elements);
+			strip = strip.concat(a.add(perpendicular.x(-width)).elements);
+		}
+		else if (i == path.length - 1){ // we're at the end
+			console.log("end");
+			a = path[i - 1]
+			b = path[i]
+			line = (b.subtract(a)).toUnitVector();
+			perpendicular = line.rotate(Math.PI/2, Vector.Zero(2));
+			strip = strip.concat(b.add(perpendicular.x(width)).elements);
+			strip = strip.concat(b.add(perpendicular.x(-width)).elements);
+		}
+		else{
+			console.log("middle");
+			a = path[i-1]
+			b = path[i]
+			c = path[i+1]
+			ab = (b.subtract(a)).toUnitVector();
+			bc = (c.subtract(b)).toUnitVector();
+			
+			line = (ab.add(bc)).x(0.5);
+			perpendicular = line.rotate(Math.PI/2, Vector.Zero(2));
+			strip = strip.concat(b.add(perpendicular.x(width)).elements);
+			strip = strip.concat(b.add(perpendicular.x(-width)).elements);
 		}
 
 	}
+	console.log(strip)
 
 	// Create a new buffer object
 	var vertex_buffer = gl.createBuffer();
@@ -190,7 +211,7 @@ function drawStrip(){
 	gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
 
 	// Pass the vertices data to the buffer
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(strip), gl.STATIC_DRAW);
 
 	//Get the attribute location
 	var coord = gl.getAttribLocation(shaderProgram, "coordinates");
@@ -201,8 +222,22 @@ function drawStrip(){
 	//Enable the attribute
 	gl.enableVertexAttribArray(coord);
 
-	gl.drawArrays(gl.LINE_STRIP, 0, 3);
+	gl.drawArrays(gl.TRIANGLE_STRIP, 0, path.length*2);
 }
+
+var path = [
+	$V([-0.9, -0.9]), 
+	$V([-0.9, -0.7]), 
+	$V([0.9, 0.9])
+	];
+
+function getMousePosition(canvas, event) { 
+            let rect = canvas.getBoundingClientRect(); 
+            let x = event.clientX - rect.left; 
+            let y = event.clientY - rect.top; 
+            console.log("Coordinate x: " + x,  
+                        "Coordinate y: " + y); 
+        } 
 
 function renderLoop(){
 	var d = new Date();
