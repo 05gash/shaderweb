@@ -95,6 +95,7 @@ doCheck(vertShader, vertCode);
 
 var shaders = await getShaders(canvasName);
 var mainShader = shaders.find( shader => shader.name == 'main');
+var commonShader = shaders.find( shader => shader.name == 'common');
 
 var fragCode = `
 	#extension GL_OES_standard_derivatives : enable
@@ -103,7 +104,9 @@ var fragCode = `
 	uniform float iTime;
 	// *TODO* uniform samplerXX iChannel;
 
-` + mainShader.shader + 
+`
+//    + ( commonShader.shader ? commonShader.shader : "" ) + //using falseyness of undefined 
+    + mainShader.shader + 
 `
 
 	void main(void) {
@@ -137,7 +140,6 @@ gl.linkProgram(shaderProgram);
 
 // Use the combined shader program object
 gl.useProgram(shaderProgram);
-
 
 /* Step 4: Associate the shader programs to buffer objects */
 
