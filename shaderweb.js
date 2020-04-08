@@ -160,9 +160,53 @@ gl.enableVertexAttribArray(coord);
 var d = new Date();
 var start = d.getTime();
 
+function drawStrip(){
+	//we want to bind the shader program we're using
+
+	const width = 0.05;
+
+	var path = [
+		$V([0.1, 0.2]), 
+		$V([0.1, 0.7]),
+		$V([0.9, 0.9])
+		];
+
+	var strip = [];
+	//compute triangle strip coords
+	for (i = 0; i < path.length - 1; i++){
+		if(i == 0){
+			a = path[i]
+			b = path[i+1]
+			line = Line.create(a, b.subtract(a));
+
+		}
+
+	}
+
+	// Create a new buffer object
+	var vertex_buffer = gl.createBuffer();
+
+	// Bind an empty array buffer to it
+	gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
+
+	// Pass the vertices data to the buffer
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
+
+	//Get the attribute location
+	var coord = gl.getAttribLocation(shaderProgram, "coordinates");
+
+	//point an attribute to the currently bound VBO
+	gl.vertexAttribPointer(coord, 2, gl.FLOAT, false, 0, 0);
+
+	//Enable the attribute
+	gl.enableVertexAttribArray(coord);
+
+	gl.drawArrays(gl.LINE_STRIP, 0, 3);
+}
+
 function renderLoop(){
 	var d = new Date();
-	var millis = d.getTime();
+	var millis = (new Date()).getTime();
 
 	// Clear the canvas
 	gl.clearColor(0.8, 0.5, 0.5, 1.0);
@@ -183,8 +227,8 @@ function renderLoop(){
 	gl.uniform1fv(timeLoc, [(millis-start)/1000.0]);
 
 	// Draw the triangle
-	gl.drawArrays(gl.TRIANGLES, 0, 6);
-	window.setTimeout(renderLoop, 1000.0/60.0);
+	drawStrip()	
+	//window.setTimeout(renderLoop, 1000.0/60.0);
 }
 renderLoop();
 }
