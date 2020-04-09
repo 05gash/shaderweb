@@ -44,9 +44,45 @@ async function go(canvasName){
 	//END HELPERS
 	console.log(canvasName);
 	var canvas = document.getElementById(canvasName);
-	var gl = canvas.getContext('experimental-webgl');
+	var gl = canvas.getContext('webgl2');
 
 	checkExtensions(gl);
+
+
+	//create our MSAA rendertarget
+	
+	 var FRAMEBUFFER_SIZE = {
+            x: canvas.width,
+            y: canvas.height
+        };
+        var texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+
+        // -- Init Frame Buffers
+        var FRAMEBUFFER = {
+            RENDERBUFFER: 0,
+            COLORBUFFER: 1
+        };
+        var framebuffers = [
+            gl.createFramebuffer(),
+            gl.createFramebuffer()
+        ];
+        var colorRenderbuffer = gl.createRenderbuffer();
+        gl.bindRenderbuffer(gl.RENDERBUFFER, colorRenderbuffer);
+        gl.renderbufferStorageMultisample(gl.RENDERBUFFER, 4, gl.RGBA8, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[FRAMEBUFFER.RENDERBUFFER]);
+        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, colorRenderbuffer);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[FRAMEBUFFER.COLORBUFFER]);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
 	/* Create and compile Shader programs */
 
 
@@ -239,17 +275,19 @@ async function go(canvasName){
 	for (var startY = 0.1; startY < 0.9; startY+=spacing){
 		var path = []
 		for (var step = 0.1; step < 0.9; step += stepLength){
-			path = path.concat($V([step, startY + 0.2*Math.sin(step*10.0)]));
+			path = path.concat($V([step, startY + 0.04*Math.sin(step*10.0)]));
 		}
-		doPaintStroke(path, $V([0.2, 0.2 + Math.sin(startY), 0.3, 1.0]), spacing/3.0);
+		doPaintStroke(path, $V([0.2, 0.2 + Math.sin(startY), 0.3, 1.0]), spacing*0.25*startY);
 	}
 
 	function renderLoop(){
 		var d = new Date();
 		var millis = (new Date()).getTime();
 
-		// Clear the canvas
-		gl.clearColor(0.8, 0.5, 0.5, 1.0);
+		// Pass 1
+		gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[FRAMEBUFFER.RENDERBUFFER]);
+		gl.clearBufferfv(gl.COLOR, 0, [0.0, 0.0, 0.0, 1.0]);
+
 
 		// Enable the depth test
 		gl.enable(gl.DEPTH_TEST); 
@@ -269,7 +307,17 @@ async function go(canvasName){
 
 		// Draw the triangle
 		renderObjects.forEach(ob => drawRenderObject(ob));
+
 		//window.setTimeout(renderLoop, 1000.0/60.0);
+		// Blit framebuffers, no Multisample texture 2d in WebGL 2
+		gl.bindFramebuffer(gl.READ_FRAMEBUFFER, framebuffers[FRAMEBUFFER.RENDERBUFFER]);
+		gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+		gl.clearBufferfv(gl.COLOR, 0, [0.0, 0.0, 0.0, 1.0]);
+		gl.blitFramebuffer(
+		    0, 0, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y,
+		    0, 0, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y,
+		    gl.COLOR_BUFFER_BIT, gl.NEAREST
+		);
 	}
 	renderLoop();
 	//TODO, continue fan code. You haven't tested it yet, and you havent tested the object being used to pass around buffer references
