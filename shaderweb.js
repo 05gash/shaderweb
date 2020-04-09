@@ -302,7 +302,7 @@ async function go(canvasName){
 		for (var step = 0.1; step < 0.9; step += stepLength){
 			path = path.concat($V([step, startY + 0.04*Math.sin(step*10.0)]));
 		}
-		doPaintStroke(path, $V([0.2, 0.2 + Math.sin(startY), 0.3, 1.0]), spacing*0.25*startY);
+		doPaintStroke(path, $V([0.1, 0.2 + Math.sin(startY), 0.8, 1.0]), spacing*0.25*startY);
 	}
 
 	function renderLoop(){
