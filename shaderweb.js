@@ -163,12 +163,11 @@ async function go(canvasName){
 	}
 
 	//recomputes Vertices for a path, returns the renderObjects for that path
-	function recomputeVertices(vertexPath, width, colour, oldBuffers){
+	function recomputeVertices(vertexPath, width, colour){
 		// TODO this needs refactoring very soon, smells bad
 		const numFanSegments = 10;
 		//delete the old buffer
 		//we want to bind the shader program we're using
-		deleteBuffers(oldBuffers);
 
 		var strip = [];
 		var fanBeg = [];
@@ -208,26 +207,42 @@ async function go(canvasName){
 		];
 		return renderObjects;
 	}
+	const mouseInput = false;
+	if (mouseInput){
+		var path = [
+			$V([0.1, 0.1]), 
+			$V([0.2, 0.7]), 
+			$V([0.9, 0.9])
+		];
+		canvas.addEventListener("mousedown", function(e) 
+			{ 
+				path.push(getMousePosition(canvas, e));
+				renderObjects = recomputeVertices(path, 0.01, $V([0.1, 0.8, 0.8, 1.0]));
+			}); 
 
-	var path = [
-		$V([0.1, 0.1]), 
-		$V([0.2, 0.7]), 
-		$V([0.9, 0.9])
-	];
-
-	function getMousePosition(canvas, event) { 
-		let rect = canvas.getBoundingClientRect(); 
-		let x = (event.clientX - rect.left)/(canvas.width);
-		let y = 1.0 - (event.clientY - rect.top)/(canvas.height);
-		return $V([x, y]);
-	} 
+		function getMousePosition(canvas, event) { 
+			let rect = canvas.getBoundingClientRect(); 
+			let x = (event.clientX - rect.left)/(canvas.width);
+			let y = 1.0 - (event.clientY - rect.top)/(canvas.height);
+			return $V([x, y]);
+		} 
+	}
 
 	var renderObjects = [];
-	canvas.addEventListener("mousedown", function(e) 
-		{ 
-			path.push(getMousePosition(canvas, e));
-			renderObjects = recomputeVertices(path, 0.01, $V([0.1, 0.8, 0.8, 1.0]), renderObjects);
-		}); 
+
+	function doPaintStroke(path, colour, width){
+		renderObjects = renderObjects.concat(recomputeVertices(path, width, colour));
+	}
+
+	const spacing = 0.01;
+	const stepLength = 0.01;
+	for (var startY = 0.1; startY < 0.9; startY+=spacing){
+		var path = []
+		for (var step = 0.1; step < 0.9; step += stepLength){
+			path = path.concat($V([step, startY + 0.2*Math.sin(step*10.0)]));
+		}
+		doPaintStroke(path, $V([0.2, 0.2 + Math.sin(startY), 0.3, 1.0]), spacing/3.0);
+	}
 
 	function renderLoop(){
 		var d = new Date();
@@ -241,6 +256,7 @@ async function go(canvasName){
 
 		// Clear the color buffer bit
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		//deleteBuffers(renderObjects);
 
 		// Set the view port
 		gl.viewport(0,0,canvas.width,canvas.height);
@@ -253,7 +269,7 @@ async function go(canvasName){
 
 		// Draw the triangle
 		renderObjects.forEach(ob => drawRenderObject(ob));
-		window.setTimeout(renderLoop, 1000.0/60.0);
+		//window.setTimeout(renderLoop, 1000.0/60.0);
 	}
 	renderLoop();
 	//TODO, continue fan code. You haven't tested it yet, and you havent tested the object being used to pass around buffer references
