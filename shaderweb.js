@@ -88,10 +88,12 @@ async function go(canvasName){
 
 	// Vertex shader source code
 	var vertCode =
-		`
-	attribute vec2 coordinates;
+		`#version 300 es
+	in vec3 coordinates;
+	out float dist;
 	void main(void) {
-		gl_Position = vec4(2.0*coordinates - vec2(1.0) ,0.0, 1.0);
+		dist = coordinates.z;
+		gl_Position = vec4(2.0*coordinates.xy - vec2(1.0) ,0.0, 1.0);
 	}
 	`;
 
@@ -111,18 +113,35 @@ async function go(canvasName){
 	var mainShader = shaders.find( shader => shader.name == 'main');
 	var commonShader = shaders.find( shader => shader.name == 'common');
 
-	var fragCode = `
+	var fragCode = `#version 300 es
 	#extension GL_OES_standard_derivatives : enable
 	precision highp float;
 	uniform vec3 iResolution;
 	uniform vec4 colour;
 	uniform float iTime;
+	uniform float width;
+	in float dist;
+	out vec4 fragColour;
 	// *TODO* uniform samplerXX iChannel;
 	` +
 	`
 
+	vec3 blockRender(float d, vec3 color){
+		float anti = fwidth(d)*1.0;
+		float distanceFunction = abs(dist) - width;
+		float blend;
+		if(width < anti){
+			blend = 1.0;
+		}
+		else{
+			blend = smoothstep(-anti, anti, distanceFunction); 
+		}
+
+		return colour.xyz * (1.0 - blend);
+	}
 	void main(void) {
-		gl_FragColor = colour;
+		fragColour.xyz = blockRender(dist, colour.xyz);
+		fragColour.w = 1.0;
 	}
 	`;
 
@@ -157,7 +176,7 @@ async function go(canvasName){
 	var start = d.getTime();
 
 
-	function getRenderObject(vertices, renderStyle, colour){
+	function getRenderObject(vertices, renderStyle, colour, width){
 		// Create a new buffer object
 		var vertex_buffer = gl.createBuffer();
 
@@ -170,8 +189,9 @@ async function go(canvasName){
 		return {
 			vbo: vertex_buffer,
 			renderStyle: renderStyle,
-			size: vertices.length/2,
-			colour: colour
+			size: vertices.length/3,
+			colour: colour,
+			width: width
 		}
 	}
 
@@ -183,13 +203,17 @@ async function go(canvasName){
 		var coord = gl.getAttribLocation(shaderProgram, "coordinates");
 
 		//point an attribute to the currently bound VBO
-		gl.vertexAttribPointer(coord, 2, gl.FLOAT, false, 0, 0);
+		gl.vertexAttribPointer(coord, 3, gl.FLOAT, false, 0, 0);
 
 		//Enable the attribute
 		gl.enableVertexAttribArray(coord);
 
+		//set uniforms
 		var colourLoc = gl.getUniformLocation(shaderProgram, "colour");
 		gl.uniform4fv(colourLoc, ob.colour.elements);
+
+		var widthLoc = gl.getUniformLocation(shaderProgram, "width");
+		gl.uniform1fv(widthLoc, [ob.width]);
 
 		gl.drawArrays(ob.renderStyle, 0, ob.size);
 	}
@@ -215,31 +239,31 @@ async function go(canvasName){
 			ab = (b.subtract(a)).toUnitVector();
 
 			perpendicular = ab.rotate(Math.PI/2, Vector.Zero(2));
-			strip = strip.concat(a.add(perpendicular.x(width)).elements);
-			strip = strip.concat(a.add(perpendicular.x(-width)).elements);
-			strip = strip.concat(b.add(perpendicular.x(width)).elements);
-			strip = strip.concat(b.add(perpendicular.x(-width)).elements);
+			strip = strip.concat(a.add(perpendicular.x(2*width)).elements).concat(2*width);
+			strip = strip.concat(a.add(perpendicular.x(-2*width)).elements).concat(-2*width);
+			strip = strip.concat(b.add(perpendicular.x(2*width)).elements).concat(2*width);
+			strip = strip.concat(b.add(perpendicular.x(-2*width)).elements).concat(-2*width);
 
 			// compute fan strips, TODO merge the below code into one
 			if (i == 0){
-				fanBeg = a.elements;
+				fanBeg = a.elements.concat(0);
 				for (j = 0; j <= numFanSegments; j++){
 					var newVector = perpendicular.rotate(Math.PI*(j/numFanSegments), Vector.Zero(2));
-					fanBeg = fanBeg.concat(a.add(newVector.x(width)).elements);
+					fanBeg = fanBeg.concat(a.add(newVector.x(2*width)).elements).concat(2*width);
 				}
 			}
 			else if (i == vertexPath.length - 2){
-				fanEnd = b.elements;
+				fanEnd = b.elements.concat(0);
 				for (j = 0; j <= numFanSegments; j++){
 					var newVector = perpendicular.rotate(Math.PI*(-j/numFanSegments), Vector.Zero(2)); //TODO this is mostly duplicate code of that above :(
-					fanEnd = fanEnd.concat(b.add(newVector.x(width)).elements);
+					fanEnd = fanEnd.concat(b.add(newVector.x(2*width)).elements).concat(2*width);
 				}
 			}
 		}
 		renderObjects = [
-			getRenderObject(strip, gl.TRIANGLE_STRIP, colour),
-			getRenderObject(fanBeg, gl.TRIANGLE_FAN, colour),
-			getRenderObject(fanEnd, gl.TRIANGLE_FAN, colour)
+			getRenderObject(strip, gl.TRIANGLE_STRIP, colour, width),
+			getRenderObject(fanBeg, gl.TRIANGLE_FAN, colour, width),
+			getRenderObject(fanEnd, gl.TRIANGLE_FAN, colour, width)
 		];
 		return renderObjects;
 	}
@@ -270,6 +294,7 @@ async function go(canvasName){
 		renderObjects = renderObjects.concat(recomputeVertices(path, width, colour));
 	}
 
+	//calculate the actual paths
 	const spacing = 0.01;
 	const stepLength = 0.01;
 	for (var startY = 0.1; startY < 0.9; startY+=spacing){
@@ -284,11 +309,6 @@ async function go(canvasName){
 		var d = new Date();
 		var millis = (new Date()).getTime();
 
-		// Pass 1
-		gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[FRAMEBUFFER.RENDERBUFFER]);
-		gl.clearBufferfv(gl.COLOR, 0, [0.0, 0.0, 0.0, 1.0]);
-
-
 		// Enable the depth test
 		gl.enable(gl.DEPTH_TEST); 
 
@@ -298,6 +318,10 @@ async function go(canvasName){
 
 		// Set the view port
 		gl.viewport(0,0,canvas.width,canvas.height);
+
+		// Pass 1
+		gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[FRAMEBUFFER.RENDERBUFFER]);
+		gl.clearBufferfv(gl.COLOR, 0, [0.0, 0.0, 0.0, 1.0]);
 
 		// DO UNIFORMS
 		var resolutionLoc = gl.getUniformLocation(shaderProgram, "iResolution");
