@@ -46,38 +46,16 @@ async function go(canvasName){
 	var canvas = document.getElementById(canvasName);
 	var gl = canvas.getContext('experimental-webgl');
 
-	checkExtensions(gl);	
-	/* Step2: Define the geometry and store it in buffer objects */
+	checkExtensions(gl);
+	/* Create and compile Shader programs */
 
-	var vertices = [
-		-1.0,  1.0, //triangle 1
-		-1.0, -1.0,
-		1.0,  1.0,
-		-1.0, -1.0, //triangle 2
-		1.0, -1.0,
-		1.0,  1.0
-	];
-
-	// Create a new buffer object
-	var vertex_buffer = gl.createBuffer();
-
-	// Bind an empty array buffer to it
-	gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
-
-	// Pass the vertices data to the buffer
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-
-	// Unbind the buffer
-	gl.bindBuffer(gl.ARRAY_BUFFER, null);
-
-	/* Step3: Create and compile Shader programs */
 
 	// Vertex shader source code
 	var vertCode =
 		`
 	attribute vec2 coordinates;
 	void main(void) {
-		gl_Position = vec4(coordinates,0.0, 1.0);
+		gl_Position = vec4(2.0*coordinates - vec2(1.0) ,0.0, 1.0);
 	}
 	`;
 
@@ -140,66 +118,13 @@ async function go(canvasName){
 
 	// Use the combined shader program object
 	gl.useProgram(shaderProgram);
-
-	/* Step 4: Associate the shader programs to buffer objects */
-
-	//Bind vertex buffer object
-	gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
-
-	//Get the attribute location
-	var coord = gl.getAttribLocation(shaderProgram, "coordinates");
-
-	//point an attribute to the currently bound VBO
-	gl.vertexAttribPointer(coord, 2, gl.FLOAT, false, 0, 0);
-
-	//Enable the attribute
-	gl.enableVertexAttribArray(coord);
-
 	/* Step5: Drawing the required object (triangle) */
 
 	var d = new Date();
 	var start = d.getTime();
 
-	function drawStrip(path){
-		//we want to bind the shader program we're using
 
-		const width = 0.03;
-
-		//openGL screen space coordinates
-		var strip = [];
-		//compute triangle strip coords
-		for (i = 0; i < path.length; i++){
-			if(i == 0){
-				a = path[i]
-				b = path[i+1]
-				line = (b.subtract(a)).toUnitVector();
-				perpendicular = line.rotate(Math.PI/2, Vector.Zero(2));
-				strip = strip.concat(a.add(perpendicular.x(width)).elements);
-				strip = strip.concat(a.add(perpendicular.x(-width)).elements);
-			}
-			else if (i == path.length - 1){ // we're at the end
-				a = path[i - 1]
-				b = path[i]
-				line = (b.subtract(a)).toUnitVector();
-				perpendicular = line.rotate(Math.PI/2, Vector.Zero(2));
-				strip = strip.concat(b.add(perpendicular.x(width)).elements);
-				strip = strip.concat(b.add(perpendicular.x(-width)).elements);
-			}
-			else{
-				a = path[i-1]
-				b = path[i]
-				c = path[i+1]
-				ab = (b.subtract(a)).toUnitVector();
-				bc = (c.subtract(b)).toUnitVector();
-
-				line = (ab.add(bc)).x(0.5);
-				perpendicular = line.rotate(Math.PI/2, Vector.Zero(2));
-				strip = strip.concat(b.add(perpendicular.x(width)).elements);
-				strip = strip.concat(b.add(perpendicular.x(-width)).elements);
-			}
-
-		}
-
+	function getRenderObject(vertices, renderStyle){
 		// Create a new buffer object
 		var vertex_buffer = gl.createBuffer();
 
@@ -207,7 +132,18 @@ async function go(canvasName){
 		gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
 
 		// Pass the vertices data to the buffer
-		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(strip), gl.STATIC_DRAW);
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+
+		return {
+			vbo: vertex_buffer,
+			renderStyle: renderStyle,
+			size: vertices.length/2
+		}
+	}
+
+	function drawRenderObject(ob){
+		// Bind buffer 
+		gl.bindBuffer(gl.ARRAY_BUFFER, ob.vbo);
 
 		//Get the attribute location
 		var coord = gl.getAttribLocation(shaderProgram, "coordinates");
@@ -218,26 +154,88 @@ async function go(canvasName){
 		//Enable the attribute
 		gl.enableVertexAttribArray(coord);
 
-		gl.drawArrays(gl.TRIANGLE_STRIP, 0, path.length*2);
+		gl.drawArrays(ob.renderStyle, 0, ob.size);
+	}
+
+	function deleteBuffers(renderObjects){
+		renderObjects.forEach(ob => gl.deleteBuffer(ob.vbo));
+	}
+
+	//recomputes Vertices for a path, returns the renderObjects for that path
+	function recomputeVertices(vertexPath, oldBuffers){
+		// TODO this needs refactoring very soon, smells bad
+
+		console.log(vertexPath);
+		const numFanSegments = 10;
+		const width = 0.03;
+		//delete the old buffer
+		//we want to bind the shader program we're using
+		deleteBuffers(oldBuffers);
+
+		var strip = [];
+		var fanBeg = [];
+		var fanEnd = [];
+		//compute triangle strip coords
+		for (i = 0; i < vertexPath.length-1; i++){
+			a = vertexPath[i]
+			b = vertexPath[i+1]
+			ab = (b.subtract(a)).toUnitVector();
+
+			perpendicular = ab.rotate(Math.PI/2, Vector.Zero(2));
+			strip = strip.concat(a.add(perpendicular.x(width)).elements);
+			strip = strip.concat(a.add(perpendicular.x(-width)).elements);
+			strip = strip.concat(b.add(perpendicular.x(width)).elements);
+			strip = strip.concat(b.add(perpendicular.x(-width)).elements);
+
+			// compute fan strips, TODO merge the below code into one
+			if (i == 0){
+				fanBeg = a.elements;
+				for (j = 0; j <= numFanSegments; j++){
+					var newVector = perpendicular.rotate(Math.PI*(j/numFanSegments), Vector.Zero(2));
+					fanBeg = fanBeg.concat(a.add(newVector.x(width)).elements);
+				}
+			}
+			else if (i == vertexPath.length - 2){
+				fanEnd = b.elements;
+				for (j = 0; j <= numFanSegments; j++){
+					var newVector = perpendicular.rotate(Math.PI*(-j/numFanSegments), Vector.Zero(2)); //TODO this is mostly duplicate code of that above :(
+					fanEnd = fanEnd.concat(b.add(newVector.x(width)).elements);
+				}
+			}
+		}
+		console.log("strip:");
+		console.log(strip);
+		console.log("fanEnd:");
+		console.log(fanEnd);
+		console.log("fanBeg:");
+		console.log(fanBeg);
+		renderObjects = [
+			getRenderObject(strip, gl.TRIANGLE_STRIP),
+			getRenderObject(fanBeg, gl.TRIANGLE_FAN),
+			getRenderObject(fanEnd, gl.TRIANGLE_FAN)
+		];
+		return renderObjects;
 	}
 
 	var path = [
-		$V([-0.9, -0.9]), 
-		$V([-0.9, -0.7]), 
+		$V([0.1, 0.1]), 
+		$V([0.2, 0.7]), 
 		$V([0.9, 0.9])
 	];
 
 	function getMousePosition(canvas, event) { 
 		let rect = canvas.getBoundingClientRect(); 
-		let x = 2.0*(event.clientX - rect.left)/(canvas.width) - 1.0;
-		let y = -2.0*(event.clientY - rect.top)/(canvas.height) + 1.0;
+		let x = (event.clientX - rect.left)/(canvas.width);
+		let y = 1.0 - (event.clientY - rect.top)/(canvas.height);
 		return $V([x, y]);
 	} 
 
+	var renderObjects = [];
 	canvas.addEventListener("mousedown", function(e) 
-	{ 
-		path.push(getMousePosition(canvas, e));
-	}); 
+		{ 
+			path.push(getMousePosition(canvas, e));
+			renderObjects = recomputeVertices(path, renderObjects);
+		}); 
 
 	function renderLoop(){
 		var d = new Date();
@@ -262,8 +260,9 @@ async function go(canvasName){
 		gl.uniform1fv(timeLoc, [(millis-start)/1000.0]);
 
 		// Draw the triangle
-		drawStrip(path)	
+		renderObjects.forEach(ob => drawRenderObject(ob));
 		window.setTimeout(renderLoop, 1000.0/60.0);
 	}
 	renderLoop();
+	//TODO, continue fan code. You haven't tested it yet, and you havent tested the object being used to pass around buffer references
 }
