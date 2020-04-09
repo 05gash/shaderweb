@@ -79,17 +79,14 @@ async function go(canvasName){
 	#extension GL_OES_standard_derivatives : enable
 	precision highp float;
 	uniform vec3 iResolution;
+	uniform vec4 colour;
 	uniform float iTime;
 	// *TODO* uniform samplerXX iChannel;
-
+	` +
 	`
-	//    + ( commonShader.shader ? commonShader.shader : "" ) + //using falseyness of undefined 
-		+ mainShader.shader + 
-		`
 
 	void main(void) {
-		mainImage(gl_FragColor, gl_FragCoord.xy);
-		gl_FragColor.a = 1.0;
+		gl_FragColor = colour;
 	}
 	`;
 
@@ -124,7 +121,7 @@ async function go(canvasName){
 	var start = d.getTime();
 
 
-	function getRenderObject(vertices, renderStyle){
+	function getRenderObject(vertices, renderStyle, colour){
 		// Create a new buffer object
 		var vertex_buffer = gl.createBuffer();
 
@@ -137,7 +134,8 @@ async function go(canvasName){
 		return {
 			vbo: vertex_buffer,
 			renderStyle: renderStyle,
-			size: vertices.length/2
+			size: vertices.length/2,
+			colour: colour
 		}
 	}
 
@@ -154,6 +152,9 @@ async function go(canvasName){
 		//Enable the attribute
 		gl.enableVertexAttribArray(coord);
 
+		var colourLoc = gl.getUniformLocation(shaderProgram, "colour");
+		gl.uniform4fv(colourLoc, ob.colour.elements);
+
 		gl.drawArrays(ob.renderStyle, 0, ob.size);
 	}
 
@@ -162,12 +163,9 @@ async function go(canvasName){
 	}
 
 	//recomputes Vertices for a path, returns the renderObjects for that path
-	function recomputeVertices(vertexPath, oldBuffers){
+	function recomputeVertices(vertexPath, width, colour, oldBuffers){
 		// TODO this needs refactoring very soon, smells bad
-
-		console.log(vertexPath);
 		const numFanSegments = 10;
-		const width = 0.03;
 		//delete the old buffer
 		//we want to bind the shader program we're using
 		deleteBuffers(oldBuffers);
@@ -203,16 +201,10 @@ async function go(canvasName){
 				}
 			}
 		}
-		console.log("strip:");
-		console.log(strip);
-		console.log("fanEnd:");
-		console.log(fanEnd);
-		console.log("fanBeg:");
-		console.log(fanBeg);
 		renderObjects = [
-			getRenderObject(strip, gl.TRIANGLE_STRIP),
-			getRenderObject(fanBeg, gl.TRIANGLE_FAN),
-			getRenderObject(fanEnd, gl.TRIANGLE_FAN)
+			getRenderObject(strip, gl.TRIANGLE_STRIP, colour),
+			getRenderObject(fanBeg, gl.TRIANGLE_FAN, colour),
+			getRenderObject(fanEnd, gl.TRIANGLE_FAN, colour)
 		];
 		return renderObjects;
 	}
@@ -234,7 +226,7 @@ async function go(canvasName){
 	canvas.addEventListener("mousedown", function(e) 
 		{ 
 			path.push(getMousePosition(canvas, e));
-			renderObjects = recomputeVertices(path, renderObjects);
+			renderObjects = recomputeVertices(path, 0.01, $V([0.1, 0.8, 0.8, 1.0]), renderObjects);
 		}); 
 
 	function renderLoop(){
