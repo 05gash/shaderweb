@@ -127,17 +127,19 @@ async function go(canvasName){
 	`
 
 	vec3 blockRender(float d, vec3 color){
-		float anti = fwidth(d)*1.0;
 		float distanceFunction = abs(dist) - width;
+		float dScreenCoord = fwidth(length(gl_FragCoord.xy/iResolution.xy));
+		float anti = fwidth(distanceFunction);
 		float blend;
 		if(width < anti){
 			blend = 1.0;
 		}
 		else{
-			blend = smoothstep(-anti, anti, distanceFunction); 
+			blend = 1.0 - smoothstep(-anti, anti, distanceFunction);
+			//blend =	smoothstep(anti, -anti, -distanceFunction);
 		}
 
-		return colour.xyz * (1.0 - blend);
+		return vec3(blend);
 	}
 	void main(void) {
 		fragColour.xyz = blockRender(dist, colour.xyz);
@@ -295,15 +297,14 @@ async function go(canvasName){
 	}
 
 	//calculate the actual paths
-	const spacing = 0.01;
-	const stepLength = 0.01;
-	for (var startY = 0.1; startY < 0.9; startY+=spacing){
-		var path = []
-		for (var step = 0.1; step < 0.9; step += stepLength){
-			path = path.concat($V([step, startY + 0.04*Math.sin(step*10.0)]));
-		}
-		doPaintStroke(path, $V([0.1, 0.2 + Math.sin(startY), 0.8, 1.0]), spacing*0.25*startY);
+	const spacing = 0.1;
+	const numSegments = 200.;
+	const startRad = 0.3;
+	var path = []
+	for (var step = 0.0; step < 2*Math.PI; step += 2*Math.PI/numSegments){
+		path = path.concat($V([ 0.5 + startRad*Math.cos(step), 0.5 + startRad*Math.sin(step)]));
 	}
+	doPaintStroke(path, $V([0.1, 0.2 + Math.sin(startRad), 0.8, 1.0]), 0.03);
 
 	function renderLoop(){
 		var d = new Date();
@@ -320,7 +321,7 @@ async function go(canvasName){
 		gl.viewport(0,0,canvas.width,canvas.height);
 
 		// Pass 1
-		gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[FRAMEBUFFER.RENDERBUFFER]);
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 		gl.clearBufferfv(gl.COLOR, 0, [0.0, 0.0, 0.0, 1.0]);
 
 		// DO UNIFORMS
@@ -334,14 +335,14 @@ async function go(canvasName){
 
 		//window.setTimeout(renderLoop, 1000.0/60.0);
 		// Blit framebuffers, no Multisample texture 2d in WebGL 2
-		gl.bindFramebuffer(gl.READ_FRAMEBUFFER, framebuffers[FRAMEBUFFER.RENDERBUFFER]);
+		//gl.bindFramebuffer(gl.READ_FRAMEBUFFER, framebuffers[FRAMEBUFFER.RENDERBUFFER]);
 		gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
-		gl.clearBufferfv(gl.COLOR, 0, [0.0, 0.0, 0.0, 1.0]);
-		gl.blitFramebuffer(
-		    0, 0, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y,
-		    0, 0, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y,
-		    gl.COLOR_BUFFER_BIT, gl.NEAREST
-		);
+		//gl.clearBufferfv(gl.COLOR, 0, [0.0, 0.0, 0.0, 1.0]);
+		//gl.blitFramebuffer(
+		//    0, 0, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y,
+		//    0, 0, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y,
+		//    gl.COLOR_BUFFER_BIT, gl.NEAREST
+		//);
 	}
 	renderLoop();
 	//TODO, continue fan code. You haven't tested it yet, and you havent tested the object being used to pass around buffer references
