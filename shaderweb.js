@@ -85,15 +85,45 @@ async function go(canvasName){
 
 	/* Create and compile Shader programs */
 
+	//TODO we're defining our sdf as having a boundary at width
 
 	// Vertex shader source code
 	var vertCode =
-		`#version 300 es
+	`#version 300 es
 	in vec3 coordinates;
+	in vec2 start;
 	out float dist;
+	uniform float iTime;
+	uniform float width;
+	#define pi 3.141592
+
+	float getFlowField(vec2 p){
+		return p.x*3.; 
+	}
+	vec3 doWalk(vec2 start, int numSteps){
+		float stepSize = 0.01;
+		vec2 pos = start;
+		float theta;
+		for (int i = 0; i<numSteps; i++){
+			theta = getFlowField(pos);
+			pos += stepSize*vec2(cos(theta), sin(theta));	
+		}
+		return vec3(pos, theta);
+	}
+
 	void main(void) {
-		dist = coordinates.z;
-		gl_Position = vec4(2.0*coordinates.xy - vec2(1.0) ,0.0, 1.0);
+		vec3 pos = doWalk(start, gl_VertexID/2) + coordinates.xyz;
+
+		if (gl_VertexID % 2 == 0){
+			gl_Position = vec4(pos.xy + 2.*width*vec2(cos(pos.z+pi/2.), sin(pos.z+pi/2.)), 0.0, 1.0);
+			dist = 2.*width;
+		}
+		else{
+			gl_Position = vec4(pos.xy - 2.*width*vec2(cos(pos.z+pi/2.), sin(pos.z+pi/2.)), 0.0, 1.0);
+			dist = -2.*width;
+		}
+		gl_Position.xy *=2.0;
+		gl_Position.xy -=1.0;
 	}
 	`;
 
@@ -130,12 +160,15 @@ async function go(canvasName){
 		float distanceFunction = abs(dist) - width;
 		float anti;
 		anti = max(abs(dFdx(distanceFunction)), abs(dFdy(distanceFunction)));
-		anti = fwidth(distanceFunction);
+		//anti = abs(fwidth(distanceFunction));
+		//anti = abs(dFdx(distanceFunction)) + abs(dFdy(distanceFunction));
 		float blend;
 
 		blend =	.5 - .75*distanceFunction/anti;
+		//blend = step(distanceFunction, 0.);
+		//blend = step(distanceFunction, 0.);
 
-		return vec3(blend);
+		return colour.xyz*blend;
 	}
 	void main(void) {
 		fragColour.xyz = blockRender(dist, colour.xyz);
@@ -174,7 +207,7 @@ async function go(canvasName){
 	var start = d.getTime();
 
 
-	function getRenderObject(vertices, renderStyle, colour, width){
+	function getStripObject(numSegments, startingPositions, colour, width){
 		// Create a new buffer object
 		var vertex_buffer = gl.createBuffer();
 
@@ -182,14 +215,27 @@ async function go(canvasName){
 		gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
 
 		// Pass the vertices data to the buffer
-		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+		//2 vertices per segment, 3 attributes per vertex: x, y, dist
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(numSegments*3*2), gl.STATIC_DRAW);
+
+		// Create a new buffer object
+		var positions_buffer = gl.createBuffer();
+
+		// Bind an empty array buffer to it
+		gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
+
+		// Pass the vertices data to the buffer
+		//2 vertices per segment, 3 attributes per vertex: x, y, dist
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(numSegments*3*2), gl.STATIC_DRAW);
 
 		return {
+			program: null,
 			vbo: vertex_buffer,
-			renderStyle: renderStyle,
-			size: vertices.length/3,
+			renderStyle: gl.TRIANGLE_STRIP, 
+			size: numSegments*2,
 			colour: colour,
-			width: width
+			width: width,
+			instance_attributes: null
 		}
 	}
 
@@ -220,51 +266,51 @@ async function go(canvasName){
 		renderObjects.forEach(ob => gl.deleteBuffer(ob.vbo));
 	}
 
-	//recomputes Vertices for a path, returns the renderObjects for that path
-	function recomputeVertices(vertexPath, width, colour){
-		// TODO this needs refactoring very soon, smells bad
-		const numFanSegments = 10;
-		//delete the old buffer
-		//we want to bind the shader program we're using
-
-		var strip = [];
-		var fanBeg = [];
-		var fanEnd = [];
-		//compute triangle strip coords
-		for (i = 0; i < vertexPath.length-1; i++){
-			a = vertexPath[i]
-			b = vertexPath[i+1]
-			ab = (b.subtract(a)).toUnitVector();
-
-			perpendicular = ab.rotate(Math.PI/2, Vector.Zero(2));
-			strip = strip.concat(a.add(perpendicular.x(2*width)).elements).concat(2*width);
-			strip = strip.concat(a.add(perpendicular.x(-2*width)).elements).concat(-2*width);
-			strip = strip.concat(b.add(perpendicular.x(2*width)).elements).concat(2*width);
-			strip = strip.concat(b.add(perpendicular.x(-2*width)).elements).concat(-2*width);
-
-			// compute fan strips, TODO merge the below code into one
-			if (i == 0){
-				fanBeg = a.elements.concat(0);
-				for (j = 0; j <= numFanSegments; j++){
-					var newVector = perpendicular.rotate(Math.PI*(j/numFanSegments), Vector.Zero(2));
-					fanBeg = fanBeg.concat(a.add(newVector.x(2*width)).elements).concat(2*width);
-				}
-			}
-			else if (i == vertexPath.length - 2){
-				fanEnd = b.elements.concat(0);
-				for (j = 0; j <= numFanSegments; j++){
-					var newVector = perpendicular.rotate(Math.PI*(-j/numFanSegments), Vector.Zero(2)); //TODO this is mostly duplicate code of that above :(
-					fanEnd = fanEnd.concat(b.add(newVector.x(2*width)).elements).concat(2*width);
-				}
-			}
-		}
-		renderObjects = [
-			getRenderObject(strip, gl.TRIANGLE_STRIP, colour, width),
-			getRenderObject(fanBeg, gl.TRIANGLE_FAN, colour, width),
-			getRenderObject(fanEnd, gl.TRIANGLE_FAN, colour, width)
-		];
-		return renderObjects;
-	}
+//	//recomputes Vertices for a path, returns the renderObjects for that path
+//	function recomputeVertices(width, colour){
+//		// TODO this needs refactoring very soon, smells bad
+//		const numFanSegments = 10;
+//		//delete the old buffer
+//		//we want to bind the shader program we're using
+//
+//		var strip = [];
+//		var fanBeg = [];
+//		var fanEnd = [];
+//		//compute triangle strip coords
+//		for (i = 0; i < vertexPath.length-1; i++){
+//			a = vertexPath[i]
+//			b = vertexPath[i+1]
+//			ab = (b.subtract(a)).toUnitVector();
+//
+//			perpendicular = ab.rotate(Math.PI/2, Vector.Zero(2));
+//			strip = strip.concat(a.add(perpendicular.x(2*width)).elements).concat(2*width);
+//			strip = strip.concat(a.add(perpendicular.x(-2*width)).elements).concat(-2*width);
+//			strip = strip.concat(b.add(perpendicular.x(2*width)).elements).concat(2*width);
+//			strip = strip.concat(b.add(perpendicular.x(-2*width)).elements).concat(-2*width);
+//
+//			// compute fan strips, TODO merge the below code into one
+//			if (i == 0){
+//				fanBeg = a.elements.concat(0);
+//				for (j = 0; j <= numFanSegments; j++){
+//					var newVector = perpendicular.rotate(Math.PI*(j/numFanSegments), Vector.Zero(2));
+//					fanBeg = fanBeg.concat(a.add(newVector.x(2*width)).elements).concat(2*width);
+//				}
+//			}
+//			else if (i == vertexPath.length - 2){
+//				fanEnd = b.elements.concat(0);
+//				for (j = 0; j <= numFanSegments; j++){
+//					var newVector = perpendicular.rotate(Math.PI*(-j/numFanSegments), Vector.Zero(2)); //TODO this is mostly duplicate code of that above :(
+//					fanEnd = fanEnd.concat(b.add(newVector.x(2*width)).elements).concat(2*width);
+//				}
+//			}
+//		}
+//		renderObjects = [
+//			getRenderObject(strip, gl.TRIANGLE_STRIP, colour, width),
+//			getRenderObject(fanBeg, gl.TRIANGLE_FAN, colour, width),
+//			getRenderObject(fanEnd, gl.TRIANGLE_FAN, colour, width)
+//		];
+//		return renderObjects;
+//	}
 	const mouseInput = false;
 	if (mouseInput){
 		var path = [
@@ -288,19 +334,18 @@ async function go(canvasName){
 
 	var renderObjects = [];
 
-	function doPaintStroke(path, colour, width){
-		renderObjects = renderObjects.concat(recomputeVertices(path, width, colour));
-	}
 
-	//calculate the actual paths
-	const spacing = 0.1;
-	const numSegments = 200.;
-	const startRad = 0.3;
-	var path = []
-	for (var step = 0.0; step < Math.PI; step += 2*Math.PI/numSegments){
-		path = path.concat($V([ 0.5 + startRad*Math.cos(step), 0.5 + startRad*Math.sin(step)]));
+	// set up our starting positions
+	var startingPositions = [];
+	for (i = 0.1; i<0.9; i += 0.1){
+		startingPositions = startingPositions.concat([$V([0.5, i ])]);
 	}
-	doPaintStroke(path, $V([0.1, 0.2 + Math.sin(startRad), 0.8, 1.0]), 0.01);
+		
+	renderObjects = renderObjects.concat([getStripObject(100, startingPositions, $V([0.5, 0.5, 0.5, 1.0]), 0.005)]);
+
+
+
+
 
 	function renderLoop(){
 		var d = new Date();
@@ -319,6 +364,8 @@ async function go(canvasName){
 		// Pass 1
 		gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[FRAMEBUFFER.RENDERBUFFER]);
 		gl.clearBufferfv(gl.COLOR, 0, [0.0, 0.0, 0.0, 1.0]);
+		gl.enable(gl.BLEND);
+		gl.blendFunc(gl.ONE, gl.ONE);
 
 		// DO UNIFORMS
 		var resolutionLoc = gl.getUniformLocation(shaderProgram, "iResolution");
@@ -327,9 +374,7 @@ async function go(canvasName){
 		gl.uniform1fv(timeLoc, [(millis-start)/1000.0]);
 
 		// Draw the triangle
-		renderObjects.forEach(ob => drawRenderObject(ob));
-
-		//window.setTimeout(renderLoop, 1000.0/60.0);
+		renderObjects.forEach(ob => drawRenderObject(ob)); 
 		//Blit framebuffers, no Multisample texture 2d in WebGL 2
 		gl.bindFramebuffer(gl.READ_FRAMEBUFFER, framebuffers[FRAMEBUFFER.RENDERBUFFER]);
 		gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
@@ -339,7 +384,9 @@ async function go(canvasName){
 		    0, 0, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y,
 		    gl.COLOR_BUFFER_BIT, gl.NEAREST
 		);
+		window.setTimeout(renderLoop, 1000.0/60.0);
 	}
 	renderLoop();
+	
 	//TODO, continue fan code. You haven't tested it yet, and you havent tested the object being used to pass around buffer references
 }
