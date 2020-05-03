@@ -128,16 +128,12 @@ async function go(canvasName){
 
 	vec3 blockRender(float d, vec3 color){
 		float distanceFunction = abs(dist) - width;
-		float dScreenCoord = fwidth(length(gl_FragCoord.xy/iResolution.xy));
-		float anti = fwidth(distanceFunction);
+		float anti;
+		anti = max(abs(dFdx(distanceFunction)), abs(dFdy(distanceFunction)));
+		anti = fwidth(distanceFunction);
 		float blend;
-		if(width < anti){
-			blend = 1.0;
-		}
-		else{
-			blend = 1.0 - smoothstep(-anti, anti, distanceFunction);
-			//blend =	smoothstep(anti, -anti, -distanceFunction);
-		}
+
+		blend =	.5 - .75*distanceFunction/anti;
 
 		return vec3(blend);
 	}
@@ -301,17 +297,17 @@ async function go(canvasName){
 	const numSegments = 200.;
 	const startRad = 0.3;
 	var path = []
-	for (var step = 0.0; step < 2*Math.PI; step += 2*Math.PI/numSegments){
+	for (var step = 0.0; step < Math.PI; step += 2*Math.PI/numSegments){
 		path = path.concat($V([ 0.5 + startRad*Math.cos(step), 0.5 + startRad*Math.sin(step)]));
 	}
-	doPaintStroke(path, $V([0.1, 0.2 + Math.sin(startRad), 0.8, 1.0]), 0.03);
+	doPaintStroke(path, $V([0.1, 0.2 + Math.sin(startRad), 0.8, 1.0]), 0.01);
 
 	function renderLoop(){
 		var d = new Date();
 		var millis = (new Date()).getTime();
 
 		// Enable the depth test
-		gl.enable(gl.DEPTH_TEST); 
+		gl.disable(gl.DEPTH_TEST); 
 
 		// Clear the color buffer bit
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -321,7 +317,7 @@ async function go(canvasName){
 		gl.viewport(0,0,canvas.width,canvas.height);
 
 		// Pass 1
-		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+		gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[FRAMEBUFFER.RENDERBUFFER]);
 		gl.clearBufferfv(gl.COLOR, 0, [0.0, 0.0, 0.0, 1.0]);
 
 		// DO UNIFORMS
@@ -334,15 +330,15 @@ async function go(canvasName){
 		renderObjects.forEach(ob => drawRenderObject(ob));
 
 		//window.setTimeout(renderLoop, 1000.0/60.0);
-		// Blit framebuffers, no Multisample texture 2d in WebGL 2
-		//gl.bindFramebuffer(gl.READ_FRAMEBUFFER, framebuffers[FRAMEBUFFER.RENDERBUFFER]);
+		//Blit framebuffers, no Multisample texture 2d in WebGL 2
+		gl.bindFramebuffer(gl.READ_FRAMEBUFFER, framebuffers[FRAMEBUFFER.RENDERBUFFER]);
 		gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
-		//gl.clearBufferfv(gl.COLOR, 0, [0.0, 0.0, 0.0, 1.0]);
-		//gl.blitFramebuffer(
-		//    0, 0, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y,
-		//    0, 0, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y,
-		//    gl.COLOR_BUFFER_BIT, gl.NEAREST
-		//);
+		gl.clearBufferfv(gl.COLOR, 0, [0.0, 0.0, 0.0, 1.0]);
+		gl.blitFramebuffer(
+		    0, 0, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y,
+		    0, 0, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y,
+		    gl.COLOR_BUFFER_BIT, gl.NEAREST
+		);
 	}
 	renderLoop();
 	//TODO, continue fan code. You haven't tested it yet, and you havent tested the object being used to pass around buffer references
