@@ -100,7 +100,7 @@ async function go(canvasName){
 	float getFlowField(vec2 p){
 		return p.x*3.; 
 	}
-	vec3 doWalk(vec2 start, int numSteps){
+	vec3 doWalk(int numSteps){
 		float stepSize = 0.01;
 		vec2 pos = start;
 		float theta;
@@ -112,7 +112,7 @@ async function go(canvasName){
 	}
 
 	void main(void) {
-		vec3 pos = doWalk(start, gl_VertexID/2) + coordinates.xyz;
+		vec3 pos = doWalk(gl_VertexID/2) + coordinates.xyz;
 
 		if (gl_VertexID % 2 == 0){
 			gl_Position = vec4(pos.xy + 2.*width*vec2(cos(pos.z+pi/2.), sin(pos.z+pi/2.)), 0.0, 1.0);
@@ -164,7 +164,7 @@ async function go(canvasName){
 		//anti = abs(dFdx(distanceFunction)) + abs(dFdy(distanceFunction));
 		float blend;
 
-		blend =	.5 - .75*distanceFunction/anti;
+		blend =	clamp(.5 - .75*distanceFunction/anti, 0., 1.);
 		//blend = step(distanceFunction, 0.);
 		//blend = step(distanceFunction, 0.);
 
@@ -218,15 +218,15 @@ async function go(canvasName){
 		//2 vertices per segment, 3 attributes per vertex: x, y, dist
 		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(numSegments*3*2), gl.STATIC_DRAW);
 
+
 		// Create a new buffer object
 		var positions_buffer = gl.createBuffer();
 
 		// Bind an empty array buffer to it
-		gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
+		gl.bindBuffer(gl.ARRAY_BUFFER, positions_buffer);
 
-		// Pass the vertices data to the buffer
-		//2 vertices per segment, 3 attributes per vertex: x, y, dist
-		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(numSegments*3*2), gl.STATIC_DRAW);
+		// Pass the positions
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(startingPositions), gl.STATIC_DRAW);
 
 		return {
 			program: null,
@@ -235,7 +235,13 @@ async function go(canvasName){
 			size: numSegments*2,
 			colour: colour,
 			width: width,
-			instance_attributes: null
+			instance_attributes: [
+				{
+					name: "start", 
+					buffer:  positions_buffer,
+					size: 2
+				}
+			]
 		}
 	}
 
@@ -259,7 +265,17 @@ async function go(canvasName){
 		var widthLoc = gl.getUniformLocation(shaderProgram, "width");
 		gl.uniform1fv(widthLoc, [ob.width]);
 
-		gl.drawArrays(ob.renderStyle, 0, ob.size);
+		//instance attributes
+		for (var i = 0; i<ob.instance_attributes.length; i++){
+			attr = ob.instance_attributes[i];
+			gl.bindBuffer(gl.ARRAY_BUFFER, attr.buffer);
+			var loc = gl.getAttribLocation(shaderProgram, attr.name);
+			gl.enableVertexAttribArray(loc);
+			gl.vertexAttribPointer(loc, attr.size, gl.FLOAT, false, 0, 0);
+			gl.vertexAttribDivisor(loc, 1);
+		}
+		gl.drawArraysInstanced(ob.renderStyle, 0, ob.size, 8);
+		//gl.drawArrays(ob.renderStyle, 0, ob.size);
 	}
 
 	function deleteBuffers(renderObjects){
@@ -338,10 +354,11 @@ async function go(canvasName){
 	// set up our starting positions
 	var startingPositions = [];
 	for (i = 0.1; i<0.9; i += 0.1){
-		startingPositions = startingPositions.concat([$V([0.5, i ])]);
+		startingPositions = startingPositions.concat([0.1, i]);
 	}
+	console.log(startingPositions);
 		
-	renderObjects = renderObjects.concat([getStripObject(100, startingPositions, $V([0.5, 0.5, 0.5, 1.0]), 0.005)]);
+	renderObjects = renderObjects.concat([getStripObject(100, startingPositions, $V([0.8, 0.5, 0.5, 1.0]), 0.005)]);
 
 
 
@@ -384,7 +401,7 @@ async function go(canvasName){
 		    0, 0, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y,
 		    gl.COLOR_BUFFER_BIT, gl.NEAREST
 		);
-		window.setTimeout(renderLoop, 1000.0/60.0);
+		//window.setTimeout(renderLoop, 1000.0/60.0);
 	}
 	renderLoop();
 	
