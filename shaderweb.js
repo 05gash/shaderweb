@@ -1,5 +1,5 @@
-function getShader(canvasName, bufferName){
-	const uri = 'shaderweb/' + canvasName + '/' + bufferName + '.glsl';
+function getShader(name){
+	const uri = 'shaderweb/shaders/' + name;
 	console.log('uri: ' + uri);
 	return fetch(uri)
 		.then(
@@ -12,9 +12,9 @@ function getShader(canvasName, bufferName){
  * returns a tagged array, each element has a name and a shader'
  * each represents a render pass. The main buffer uses the screen as a rendertarget
  */
-async function getShaders(canvasName){
-	const shaderNames = ['main', 'buffer1', 'common'];
-	const shaderVals = await Promise.all(shaderNames.map(shader => getShader(canvasName, shader)));
+async function getShaders(name){
+	const shaderNames = ['frag', 'vert'];
+	const shaderVals = await Promise.all(shaderNames.map(shaderType => getShader(name + '_' + shaderType + '.glsl')));
 	const shaders = shaderNames.map( (name, index) => ({name : name, shader: shaderVals[index]}) );
 	return shaders
 }
@@ -37,6 +37,59 @@ async function go(canvasName){
 			console.log(source);
 		}
 	}
+
+	async function getShaderProgram(name, feedback_varyings){
+		//TODO we're defining our sdf as having a boundary at width
+
+		var shaders = await getShaders(name);
+		var vertCode = shaders.find( shader => shader.name == 'vert').shader;
+
+		//Create a vertex shader object
+		var vertShader = gl.createShader(gl.VERTEX_SHADER);
+
+		//Attach vertex shader source code
+		gl.shaderSource(vertShader, vertCode);
+
+		//Compile the vertex shader
+		gl.compileShader(vertShader);
+
+		doCheck(vertShader, vertCode);
+		//Fragment shader source code
+
+		var fragCode = shaders.find( shader => shader.name == 'frag').shader;
+
+		// Create fragment shader object
+		var fragShader = gl.createShader(gl.FRAGMENT_SHADER);
+
+		// Attach fragment shader source code
+		gl.shaderSource(fragShader, fragCode);
+
+		// Compile the fragment shader
+		gl.compileShader(fragShader);
+
+		doCheck(fragShader, fragCode);
+		// Create a shader program object to store combined shader program
+		var shaderProgram = gl.createProgram();
+
+		// Attach a vertex shader
+		gl.attachShader(shaderProgram, vertShader); 
+
+		// Attach a fragment shader
+		gl.attachShader(shaderProgram, fragShader);
+
+		if (feedback_varyings){
+			gl.transformFeedbackVaryings(
+				shaderProgram,
+				feedback_varyings,
+				gl.INTERLEAVED_ATTRIBS)
+		}
+
+		// Link both programs
+		gl.linkProgram(shaderProgram);
+		return shaderProgram;
+
+	}
+
 	function checkExtensions(gl){
 		gl.getExtension('OES_standard_derivatives');
 	}
@@ -86,213 +139,8 @@ async function go(canvasName){
 	/* Create and compile Shader programs */
 
 	//TODO we're defining our sdf as having a boundary at width
-
-	// Vertex shader source code
-	var vertCode =
-	`#version 300 es
-	in vec3 coordinates;
-	in vec2 start;
-	out float dist;
-	uniform float iTime;
-	uniform float width;
-
-	#define pi 3.141592
-
-
-	// Some useful functions
-	vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-	vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-	vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
-
-	//
-	// Description : GLSL 2D simplex noise function
-	//      Author : Ian McEwan, Ashima Arts
-	//  Maintainer : ijm
-	//     Lastmod : 20110822 (ijm)
-	//     License :
-	//  Copyright (C) 2011 Ashima Arts. All rights reserved.
-	//  Distributed under the MIT License. See LICENSE file.
-	//  https://github.com/ashima/webgl-noise
-	//
-	float snoise(vec2 v) {
-
-	    // Precompute values for skewed triangular grid
-	    const vec4 C = vec4(0.211324865405187,
-				// (3.0-sqrt(3.0))/6.0
-				0.366025403784439,
-				// 0.5*(sqrt(3.0)-1.0)
-				-0.577350269189626,
-				// -1.0 + 2.0 * C.x
-				0.024390243902439);
-				// 1.0 / 41.0
-
-	    // First corner (x0)
-	    vec2 i  = floor(v + dot(v, C.yy));
-	    vec2 x0 = v - i + dot(i, C.xx);
-
-	    // Other two corners (x1, x2)
-	    vec2 i1 = vec2(0.0);
-	    i1 = (x0.x > x0.y)? vec2(1.0, 0.0):vec2(0.0, 1.0);
-	    vec2 x1 = x0.xy + C.xx - i1;
-	    vec2 x2 = x0.xy + C.zz;
-
-	    // Do some permutations to avoid
-	    // truncation effects in permutation
-	    i = mod289(i);
-	    vec3 p = permute(
-		    permute( i.y + vec3(0.0, i1.y, 1.0))
-			+ i.x + vec3(0.0, i1.x, 1.0 ));
-
-	    vec3 m = max(0.5 - vec3(
-				dot(x0,x0),
-				dot(x1,x1),
-				dot(x2,x2)
-				), 0.0);
-
-	    m = m*m ;
-	    m = m*m ;
-
-	    // Gradients:
-	    //  41 pts uniformly over a line, mapped onto a diamond
-	    //  The ring size 17*17 = 289 is close to a multiple
-	    //      of 41 (41*7 = 287)
-
-	    vec3 x = 2.0 * fract(p * C.www) - 1.0;
-	    vec3 h = abs(x) - 0.5;
-	    vec3 ox = floor(x + 0.5);
-	    vec3 a0 = x - ox;
-
-	    // Normalise gradients implicitly by scaling m
-	    // Approximation of: m *= inversesqrt(a0*a0 + h*h);
-	    m *= 1.79284291400159 - 0.85373472095314 * (a0*a0+h*h);
-
-	    // Compute final noise value at P
-	    vec3 g = vec3(0.0);
-	    g.x  = a0.x  * x0.x  + h.x  * x0.y;
-	    g.yz = a0.yz * vec2(x1.x,x2.x) + h.yz * vec2(x1.y,x2.y);
-	    return 130.0 * dot(m, g);
-	}
-
-	vec3 srgb2lin( vec3 cs )
-	{
-		vec3 c_lo = cs / 12.92;
-		vec3 c_hi = pow( (cs + 0.055) / 1.055, vec3(2.4) );
-		vec3 s = step(vec3(0.04045), cs);
-		return mix( c_lo, c_hi, s );
-	}
-
-	vec3 lin2srgb( vec3 cl )
-	{
-		//cl = clamp( cl, 0.0, 1.0 );
-		vec3 c_lo = 12.92 * cl;
-		vec3 c_hi = 1.055 * pow(cl,vec3(0.41666)) - 0.055;
-		vec3 s = step( vec3(0.0031308), cl);
-		return mix( c_lo, c_hi, s );
-	}
-
-	float getFlowField(vec2 p){
-		return snoise(p);
-	}
-	vec3 doWalk(int numSteps){
-		float stepSize = 0.01;
-		vec2 pos = start;
-		float theta;
-		for (int i = 0; i<numSteps+int(iTime); i++){
-			theta = getFlowField(pos);
-			pos += stepSize*vec2(cos(theta), sin(theta));	
-		}
-		return vec3(pos, theta);
-	}
-
-	void main(void) {
-		vec3 pos = doWalk(gl_VertexID/2) + coordinates.xyz;
-
-		if (gl_VertexID % 2 == 0){
-			gl_Position = vec4(pos.xy + 2.*width*vec2(cos(pos.z+pi/2.), sin(pos.z+pi/2.)), 0.0, 1.0);
-			dist = 2.*width;
-		}
-		else{
-			gl_Position = vec4(pos.xy - 2.*width*vec2(cos(pos.z+pi/2.), sin(pos.z+pi/2.)), 0.0, 1.0);
-			dist = -2.*width;
-		}
-		gl_Position.xy *=2.0;
-		gl_Position.xy -=1.0;
-	}
-	`;
-
-	//Create a vertex shader object
-	var vertShader = gl.createShader(gl.VERTEX_SHADER);
-
-	//Attach vertex shader source code
-	gl.shaderSource(vertShader, vertCode);
-
-	//Compile the vertex shader
-	gl.compileShader(vertShader);
-
-	doCheck(vertShader, vertCode);
-	//Fragment shader source code
-
-	var shaders = await getShaders(canvasName);
-	var mainShader = shaders.find( shader => shader.name == 'main');
-	var commonShader = shaders.find( shader => shader.name == 'common');
-
-	var fragCode = `#version 300 es
-	#extension GL_OES_standard_derivatives : enable
-	precision highp float;
-	uniform vec3 iResolution;
-	uniform vec4 colour;
-	uniform float iTime;
-	uniform float width;
-	in float dist;
-	out vec4 fragColour;
-	// *TODO* uniform samplerXX iChannel;
-	` +
-	`
-
-	vec3 blockRender(float d, vec3 color){
-		float distanceFunction = abs(dist) - width;
-		float anti;
-		anti = max(abs(dFdx(distanceFunction)), abs(dFdy(distanceFunction)));
-		//anti = abs(fwidth(distanceFunction));
-		//anti = abs(dFdx(distanceFunction)) + abs(dFdy(distanceFunction));
-		float blend;
-
-		blend =	clamp(.5 - .75*distanceFunction/anti, 0., 1.);
-		//blend = step(distanceFunction, 0.);
-		//blend = step(distanceFunction, 0.);
-
-		return colour.xyz*blend;
-	}
-	void main(void) {
-		fragColour.xyz = blockRender(dist, colour.xyz);
-		fragColour.w = 1.0;
-	}
-	`;
-
-	// Create fragment shader object
-	var fragShader = gl.createShader(gl.FRAGMENT_SHADER);
-
-	// Attach fragment shader source code
-	gl.shaderSource(fragShader, fragCode);
-
-	// Compile the fragment shader
-	gl.compileShader(fragShader);
-
-	doCheck(fragShader, fragCode);
-	// Create a shader program object to store combined shader program
-	var shaderProgram = gl.createProgram();
-
-	// Attach a vertex shader
-	gl.attachShader(shaderProgram, vertShader); 
-
-	// Attach a fragment shader
-	gl.attachShader(shaderProgram, fragShader);
-
-	// Link both programs
-	gl.linkProgram(shaderProgram);
-
-
 	// Use the combined shader program object
+	shaderProgram = await getShaderProgram("main")
 	gl.useProgram(shaderProgram);
 	/* Step5: Drawing the required object (triangle) */
 
@@ -376,51 +224,6 @@ async function go(canvasName){
 		renderObjects.forEach(ob => gl.deleteBuffer(ob.vbo));
 	}
 
-//	//recomputes Vertices for a path, returns the renderObjects for that path
-//	function recomputeVertices(width, colour){
-//		// TODO this needs refactoring very soon, smells bad
-//		const numFanSegments = 10;
-//		//delete the old buffer
-//		//we want to bind the shader program we're using
-//
-//		var strip = [];
-//		var fanBeg = [];
-//		var fanEnd = [];
-//		//compute triangle strip coords
-//		for (i = 0; i < vertexPath.length-1; i++){
-//			a = vertexPath[i]
-//			b = vertexPath[i+1]
-//			ab = (b.subtract(a)).toUnitVector();
-//
-//			perpendicular = ab.rotate(Math.PI/2, Vector.Zero(2));
-//			strip = strip.concat(a.add(perpendicular.x(2*width)).elements).concat(2*width);
-//			strip = strip.concat(a.add(perpendicular.x(-2*width)).elements).concat(-2*width);
-//			strip = strip.concat(b.add(perpendicular.x(2*width)).elements).concat(2*width);
-//			strip = strip.concat(b.add(perpendicular.x(-2*width)).elements).concat(-2*width);
-//
-//			// compute fan strips, TODO merge the below code into one
-//			if (i == 0){
-//				fanBeg = a.elements.concat(0);
-//				for (j = 0; j <= numFanSegments; j++){
-//					var newVector = perpendicular.rotate(Math.PI*(j/numFanSegments), Vector.Zero(2));
-//					fanBeg = fanBeg.concat(a.add(newVector.x(2*width)).elements).concat(2*width);
-//				}
-//			}
-//			else if (i == vertexPath.length - 2){
-//				fanEnd = b.elements.concat(0);
-//				for (j = 0; j <= numFanSegments; j++){
-//					var newVector = perpendicular.rotate(Math.PI*(-j/numFanSegments), Vector.Zero(2)); //TODO this is mostly duplicate code of that above :(
-//					fanEnd = fanEnd.concat(b.add(newVector.x(2*width)).elements).concat(2*width);
-//				}
-//			}
-//		}
-//		renderObjects = [
-//			getRenderObject(strip, gl.TRIANGLE_STRIP, colour, width),
-//			getRenderObject(fanBeg, gl.TRIANGLE_FAN, colour, width),
-//			getRenderObject(fanEnd, gl.TRIANGLE_FAN, colour, width)
-//		];
-//		return renderObjects;
-//	}
 	const mouseInput = false;
 	if (mouseInput){
 		var path = [
@@ -453,9 +256,6 @@ async function go(canvasName){
 	console.log(startingPositions);
 		
 	renderObjects = renderObjects.concat([getStripObject(100, startingPositions, $V([0.8, 0.5, 0.5, 1.0]), 0.0016)]);
-
-
-
 
 
 	function renderLoop(){
