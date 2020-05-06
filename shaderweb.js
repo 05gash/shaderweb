@@ -103,52 +103,55 @@ async function go(canvasName){
 
 
 	//create our MSAA rendertarget
-	
-	 var FRAMEBUFFER_SIZE = {
-            x: canvas.width,
-            y: canvas.height
-        };
-        var texture = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, texture);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-        gl.bindTexture(gl.TEXTURE_2D, null);
 
-        // -- Init Frame Buffers
-        var FRAMEBUFFER = {
-            RENDERBUFFER: 0,
-            COLORBUFFER: 1
-        };
-        var framebuffers = [
-            gl.createFramebuffer(),
-            gl.createFramebuffer()
-        ];
-        var colorRenderbuffer = gl.createRenderbuffer();
-        gl.bindRenderbuffer(gl.RENDERBUFFER, colorRenderbuffer);
-        gl.renderbufferStorageMultisample(gl.RENDERBUFFER, 4, gl.RGBA8, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y);
+	var FRAMEBUFFER_SIZE = {
+		x: canvas.width,
+		y: canvas.height
+	};
+	var texture = gl.createTexture();
+	gl.bindTexture(gl.TEXTURE_2D, texture);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+	gl.bindTexture(gl.TEXTURE_2D, null);
 
-        gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[FRAMEBUFFER.RENDERBUFFER]);
-        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, colorRenderbuffer);
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+	// -- Init Frame Buffers
+	var FRAMEBUFFER = {
+		RENDERBUFFER: 0,
+		COLORBUFFER: 1
+	};
+	var framebuffers = [
+		gl.createFramebuffer(),
+		gl.createFramebuffer()
+	];
+	var colorRenderbuffer = gl.createRenderbuffer();
+	gl.bindRenderbuffer(gl.RENDERBUFFER, colorRenderbuffer);
+	gl.renderbufferStorageMultisample(gl.RENDERBUFFER, 4, gl.RGBA8, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y);
 
-        gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[FRAMEBUFFER.COLORBUFFER]);
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+	gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[FRAMEBUFFER.RENDERBUFFER]);
+	gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, colorRenderbuffer);
+	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+	gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[FRAMEBUFFER.COLORBUFFER]);
+	gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
 	/* Create and compile Shader programs */
 
 	//TODO we're defining our sdf as having a boundary at width
 	// Use the combined shader program object
-	shaderProgram = await getShaderProgram("main")
-	gl.useProgram(shaderProgram);
+	shaderProgram = await getShaderProgram("main");
+
+	transformProgram = await getShaderProgram("transform", ["out_coords"]);
+
+
 	/* Step5: Drawing the required object (triangle) */
 
 	var d = new Date();
 	var start = d.getTime();
 
 
-	function getStripObject(numSegments, startingPositions, colour, width){
+	function getStripObject(numSegments, numInstances, colour, width){
 		// Create a new buffer object
 		var vertex_buffer = gl.createBuffer();
 
@@ -166,9 +169,6 @@ async function go(canvasName){
 		// Bind an empty array buffer to it
 		gl.bindBuffer(gl.ARRAY_BUFFER, positions_buffer);
 
-		// Pass the positions
-		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(startingPositions), gl.STATIC_DRAW);
-
 		return {
 			program: null,
 			vbo: vertex_buffer,
@@ -176,18 +176,11 @@ async function go(canvasName){
 			size: numSegments*2,
 			colour: colour,
 			width: width,
-			instances: startingPositions.length/2,
-			instance_attributes: [
-				{
-					name: "start", 
-					buffer:  positions_buffer,
-					size: 2
-				}
-			]
+			instances: numInstances
 		}
 	}
 
-	function drawRenderObject(ob){
+	function drawRenderObject(ob, positions_buffer){
 		// Bind buffer 
 		gl.bindBuffer(gl.ARRAY_BUFFER, ob.vbo);
 
@@ -208,14 +201,13 @@ async function go(canvasName){
 		gl.uniform1fv(widthLoc, [ob.width]);
 
 		//instance attributes
-		for (var i = 0; i<ob.instance_attributes.length; i++){
-			attr = ob.instance_attributes[i];
-			gl.bindBuffer(gl.ARRAY_BUFFER, attr.buffer);
-			var loc = gl.getAttribLocation(shaderProgram, attr.name);
-			gl.enableVertexAttribArray(loc);
-			gl.vertexAttribPointer(loc, attr.size, gl.FLOAT, false, 0, 0);
-			gl.vertexAttribDivisor(loc, 1);
-		}
+		gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffers[currentSourceIdx][OFFSET_LOCATION]);
+
+		var loc = gl.getAttribLocation(shaderProgram, "start");
+		gl.enableVertexAttribArray(loc);
+		gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+		gl.vertexAttribDivisor(loc, 1);
 		gl.drawArraysInstanced(ob.renderStyle, 0, ob.size, ob.instances);
 		//gl.drawArrays(ob.renderStyle, 0, ob.size);
 	}
@@ -254,9 +246,84 @@ async function go(canvasName){
 		startingPositions = startingPositions.concat([0.1, i]);
 	}
 	console.log(startingPositions);
-		
-	renderObjects = renderObjects.concat([getStripObject(100, startingPositions, $V([0.8, 0.5, 0.5, 1.0]), 0.0016)]);
 
+	NUM_INSTANCES = startingPositions.length / 2;
+
+	/* set up our transform feedback shit*/
+	renderObjects = renderObjects.concat([getStripObject(100, NUM_INSTANCES, $V([0.8, 0.5, 0.5, 1.0]), 0.0016)]);
+
+	// -- Init Vertex Array
+	var OFFSET_LOCATION = 0;
+	var NUM_LOCATIONS = 1;
+	var currentSourceIdx = 1;
+
+	var vertexArrays = [gl.createVertexArray(), gl.createVertexArray()];
+
+	// Transform feedback objects track output buffer state
+	var transformFeedbacks = [gl.createTransformFeedback(), gl.createTransformFeedback()];
+
+	var vertexBuffers = new Array(vertexArrays.length);
+
+	for (var va = 0; va < vertexArrays.length; ++va) {
+		gl.bindVertexArray(vertexArrays[va]);
+		vertexBuffers[va] = new Array(NUM_LOCATIONS);
+
+		vertexBuffers[va][OFFSET_LOCATION] = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffers[va][OFFSET_LOCATION]);
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(startingPositions), gl.STREAM_COPY);
+		gl.vertexAttribPointer(OFFSET_LOCATION, 2, gl.FLOAT, false, 0, 0);
+		gl.enableVertexAttribArray(OFFSET_LOCATION);
+
+		gl.bindVertexArray(null);
+		gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+		// Set up output
+		gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, transformFeedbacks[va]);
+		gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, vertexBuffers[va][OFFSET_LOCATION]);
+
+		gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
+	}
+
+
+	function transform(time) {
+		var destinationIdx = (currentSourceIdx + 1) % 2;
+
+		// Toggle source and destination VBO
+		var sourceVAO = vertexArrays[currentSourceIdx];
+
+		var destinationTransformFeedback = transformFeedbacks[destinationIdx];
+
+		gl.useProgram(transformProgram);
+
+		gl.bindVertexArray(sourceVAO);
+		gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, destinationTransformFeedback);
+
+		// NOTE: The following two lines shouldn't be necessary, but are required to work in ANGLE
+		// due to a bug in its handling of transform feedback objects.
+		// https://bugs.chromium.org/p/angleproject/issues/detail?id=2051
+		gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, vertexBuffers[destinationIdx][OFFSET_LOCATION]);
+
+		// Attributes per-vertex when doing transform feedback needs setting to 0 when doing transform feedback
+		gl.vertexAttribDivisor(OFFSET_LOCATION, 0);
+
+		// Turn off rasterization - we are not drawing
+		gl.enable(gl.RASTERIZER_DISCARD);
+
+		// Update position and rotation using transform feedback
+		gl.beginTransformFeedback(gl.POINTS);
+		gl.drawArrays(gl.POINTS, 0, NUM_INSTANCES);
+		gl.endTransformFeedback();
+
+		// Restore state
+		gl.disable(gl.RASTERIZER_DISCARD);
+		gl.useProgram(null);
+		gl.bindBuffer(gl.ARRAY_BUFFER, null);
+		gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
+		gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, null);
+
+		// Ping pong the buffers
+		currentSourceIdx = (currentSourceIdx + 1) % 2;
+	}
 
 	function renderLoop(){
 		var d = new Date();
@@ -279,6 +346,7 @@ async function go(canvasName){
 		gl.blendFunc(gl.ONE, gl.ONE);
 
 		// DO UNIFORMS
+		gl.useProgram(shaderProgram);
 		var resolutionLoc = gl.getUniformLocation(shaderProgram, "iResolution");
 		gl.uniform3fv(resolutionLoc, [canvas.width, canvas.height, 0.0]); 
 		var timeLoc = gl.getUniformLocation(shaderProgram, "iTime");
@@ -291,13 +359,15 @@ async function go(canvasName){
 		gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
 		gl.clearBufferfv(gl.COLOR, 0, [0.0, 0.0, 0.0, 1.0]);
 		gl.blitFramebuffer(
-		    0, 0, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y,
-		    0, 0, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y,
-		    gl.COLOR_BUFFER_BIT, gl.NEAREST
+			0, 0, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y,
+			0, 0, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y,
+			gl.COLOR_BUFFER_BIT, gl.NEAREST
 		);
+
+		transform((millis-start)/1000.0);
 		window.setTimeout(renderLoop, 1000.0/60.0);
 	}
 	renderLoop();
-	
+
 	//TODO, continue fan code. You haven't tested it yet, and you havent tested the object being used to pass around buffer references
 }

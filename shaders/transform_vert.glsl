@@ -1,12 +1,10 @@
 #version 300 es
-in vec3 coordinates;
-in vec2 start;
-out float dist;
-uniform float iTime;
-uniform float width;
+#define OFFSET_LOCATION 0
+layout(location = OFFSET_LOCATION) in vec2 coordinates;
+
+out vec2 out_coords;
 
 #define pi 3.141592
-
 
 // Some useful functions
 vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -102,28 +100,9 @@ vec3 lin2srgb( vec3 cl )
 float getFlowField(vec2 p){
 	return snoise(p);
 }
-vec3 doWalk(int numSteps){
-	float stepSize = 0.01;
-	vec2 pos = start;
-	float theta;
-	for (int i = 0; i<numSteps; i++){
-		theta = getFlowField(pos);
-		pos += stepSize*vec2(cos(theta), sin(theta));	
-	}
-	return vec3(pos, theta);
-}
 
 void main(void) {
-	vec3 pos = doWalk(gl_VertexID/2) + coordinates.xyz;
-
-	if (gl_VertexID % 2 == 0){
-		gl_Position = vec4(pos.xy + 2.*width*vec2(cos(pos.z+pi/2.), sin(pos.z+pi/2.)), 0.0, 1.0);
-		dist = 2.*width;
-	}
-	else{
-		gl_Position = vec4(pos.xy - 2.*width*vec2(cos(pos.z+pi/2.), sin(pos.z+pi/2.)), 0.0, 1.0);
-		dist = -2.*width;
-	}
-	gl_Position.xy *=2.0;
-	gl_Position.xy -=1.0;
+	float stepSize = 0.01;
+	float theta = getFlowField(coordinates);
+	out_coords = coordinates + stepSize*vec2(cos(theta), sin(theta));	
 }
