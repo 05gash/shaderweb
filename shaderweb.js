@@ -152,26 +152,8 @@ async function go(canvasName){
 
 
 	function getStripObject(numSegments, numInstances, colour, width){
-		// Create a new buffer object
-		var vertex_buffer = gl.createBuffer();
-
-		// Bind an empty array buffer to it
-		gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
-
-		// Pass the vertices data to the buffer
-		//2 vertices per segment, 3 attributes per vertex: x, y, dist
-		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(numSegments*3*2), gl.STATIC_DRAW);
-
-
-		// Create a new buffer object
-		var positions_buffer = gl.createBuffer();
-
-		// Bind an empty array buffer to it
-		gl.bindBuffer(gl.ARRAY_BUFFER, positions_buffer);
-
 		return {
 			program: null,
-			vbo: vertex_buffer,
 			renderStyle: gl.TRIANGLE_STRIP, 
 			size: numSegments*2,
 			colour: colour,
@@ -180,18 +162,9 @@ async function go(canvasName){
 		}
 	}
 
-	function drawRenderObject(ob, positions_buffer){
+	function drawRenderObject(ob){
 		// Bind buffer 
 		gl.bindBuffer(gl.ARRAY_BUFFER, ob.vbo);
-
-		//Get the attribute location
-		var coord = gl.getAttribLocation(shaderProgram, "coordinates");
-
-		//point an attribute to the currently bound VBO
-		gl.vertexAttribPointer(coord, 3, gl.FLOAT, false, 0, 0);
-
-		//Enable the attribute
-		gl.enableVertexAttribArray(coord);
 
 		//set uniforms
 		var colourLoc = gl.getUniformLocation(shaderProgram, "colour");
@@ -200,14 +173,12 @@ async function go(canvasName){
 		var widthLoc = gl.getUniformLocation(shaderProgram, "width");
 		gl.uniform1fv(widthLoc, [ob.width]);
 
-		//instance attributes
-		gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffers[currentSourceIdx][OFFSET_LOCATION]);
 
-		var loc = gl.getAttribLocation(shaderProgram, "start");
-		gl.enableVertexAttribArray(loc);
-		gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+		gl.bindVertexArray(vertexArrays[currentSourceIdx]);
 
-		gl.vertexAttribDivisor(loc, 1);
+		// Attributes per-instance when drawing sets back to 1 when drawing instances
+		gl.vertexAttribDivisor(OFFSET_LOCATION, 1);
+
 		gl.drawArraysInstanced(ob.renderStyle, 0, ob.size, ob.instances);
 		//gl.drawArrays(ob.renderStyle, 0, ob.size);
 	}
@@ -249,13 +220,17 @@ async function go(canvasName){
 
 	NUM_INSTANCES = startingPositions.length / 2;
 
+	var numSegments = 100;
+
 	/* set up our transform feedback shit*/
-	renderObjects = renderObjects.concat([getStripObject(100, NUM_INSTANCES, $V([0.8, 0.5, 0.5, 1.0]), 0.0016)]);
+	renderObjects = renderObjects.concat([getStripObject(numSegments, NUM_INSTANCES, $V([0.8, 0.5, 0.5, 1.0]), 0.0016)]);
 
 	// -- Init Vertex Array
 	var OFFSET_LOCATION = 0;
-	var NUM_LOCATIONS = 1;
-	var currentSourceIdx = 1;
+	var POSITION_LOCATION = 1;
+	var NUM_LOCATIONS = 2;
+
+	var currentSourceIdx = 0;
 
 	var vertexArrays = [gl.createVertexArray(), gl.createVertexArray()];
 
@@ -274,6 +249,12 @@ async function go(canvasName){
 		gl.vertexAttribPointer(OFFSET_LOCATION, 2, gl.FLOAT, false, 0, 0);
 		gl.enableVertexAttribArray(OFFSET_LOCATION);
 
+		vertexBuffers[va][POSITION_LOCATION] = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffers[va][POSITION_LOCATION]);
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(numSegments*3*2), gl.STATIC_DRAW); //empty V buffer of our procedural curves for the goddamn geometry shader thingr
+		gl.vertexAttribPointer(POSITION_LOCATION, 2, gl.FLOAT, false, 0, 0);
+		gl.enableVertexAttribArray(POSITION_LOCATION);
+
 		gl.bindVertexArray(null);
 		gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
@@ -285,7 +266,7 @@ async function go(canvasName){
 	}
 
 
-	function transform(time) {
+	function transform() {
 		var destinationIdx = (currentSourceIdx + 1) % 2;
 
 		// Toggle source and destination VBO
@@ -364,7 +345,7 @@ async function go(canvasName){
 			gl.COLOR_BUFFER_BIT, gl.NEAREST
 		);
 
-		transform((millis-start)/1000.0);
+		transform();
 		window.setTimeout(renderLoop, 1000.0/60.0);
 	}
 	renderLoop();

@@ -1,6 +1,10 @@
 #version 300 es
-in vec3 coordinates;
-in vec2 start;
+#define OFFSET_LOCATION 0
+#define POSITION_LOCATION 1
+layout(location = OFFSET_LOCATION) in vec2 start;
+
+layout(location = POSITION_LOCATION) in vec3 coordinates;
+
 out float dist;
 uniform float iTime;
 uniform float width;
