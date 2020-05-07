@@ -101,7 +101,7 @@ async function go(canvasName){
 	//END HELPERS
 	console.log(canvasName);
 	var canvas = document.getElementById(canvasName);
-	var gl = canvas.getContext('webgl2');
+	var gl = canvas.getContext('webgl2', {alpha: false});
 
 	checkExtensions(gl);
 
@@ -217,7 +217,7 @@ async function go(canvasName){
 
 
 	// set up our starting positions
-	NUM_INSTANCES = 10000;
+	NUM_INSTANCES = 10;
 	var startingPositions = [];
 	for (var inst = 0; inst<NUM_INSTANCES; inst++){
 		startingPositions = startingPositions.concat([Math.random(), Math.random()]);
@@ -227,7 +227,7 @@ async function go(canvasName){
 	var numSegments = 20;
 
 	/* set up our transform feedback shit*/
-	renderObjects = renderObjects.concat([getStripObject(numSegments, NUM_INSTANCES, $V([0.8, 0.5, 0.5, 1.0]), 0.003)]);
+	renderObjects = renderObjects.concat([getStripObject(numSegments, NUM_INSTANCES, $V([0.8, 0.5, 0.5, 1.0]), 0.03)]);
 
 	// -- Init Vertex Array
 	var OFFSET_LOCATION = 0;
@@ -281,7 +281,7 @@ async function go(canvasName){
 		gl.useProgram(transformProgram);
 
 		var particle_limits = gl.getUniformLocation(transformProgram, "particle_limits");
-		gl.uniform2fv(particle_limits, [1.1, 1.1]); 
+		gl.uniform2fv(particle_limits, [0.1, 0.1]); 
 
 		gl.bindVertexArray(sourceVAO);
 		gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, destinationTransformFeedback);
@@ -321,36 +321,38 @@ async function go(canvasName){
 		gl.disable(gl.DEPTH_TEST); 
 
 		// Clear the color buffer bit
-		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		gl.clear(gl.COLOR_BUFFER_BIT);
 		//deleteBuffers(renderObjects);
 
 		// Set the view port
 		gl.viewport(0,0,canvas.width,canvas.height);
 
 		// Pass 1
-		gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[FRAMEBUFFER.RENDERBUFFER]);
-		gl.clearBufferfv(gl.COLOR, 0, [0.0, 0.0, 0.0, 1.0]);
+		//gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[FRAMEBUFFER.RENDERBUFFER]);
+		gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+		gl.clearBufferfv(gl.COLOR, 0, [1.0, 1.0, 1.0, 1.0]);
 		gl.enable(gl.BLEND);
-		gl.blendFunc(gl.ONE, gl.ONE);
-
+		gl.blendFunc(gl.ONE_MINUS_SRC_ALPHA, gl.SRC_ALPHA);
 		// DO UNIFORMS
 		gl.useProgram(shaderProgram);
 		var resolutionLoc = gl.getUniformLocation(shaderProgram, "iResolution");
 		gl.uniform3fv(resolutionLoc, [canvas.width, canvas.height, 0.0]); 
 		var timeLoc = gl.getUniformLocation(shaderProgram, "iTime");
 		gl.uniform1fv(timeLoc, [(millis-start)/1000.0]);
+		var numSegmentsLoc = gl.getUniformLocation(shaderProgram, "numSegments");
+		gl.uniform1iv(numSegmentsLoc, [numSegments]);
 
 		// Draw the triangle
 		renderObjects.forEach(ob => drawRenderObject(ob)); 
 		//Blit framebuffers, no Multisample texture 2d in WebGL 2
-		gl.bindFramebuffer(gl.READ_FRAMEBUFFER, framebuffers[FRAMEBUFFER.RENDERBUFFER]);
-		gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
-		gl.clearBufferfv(gl.COLOR, 0, [0.0, 0.0, 0.0, 1.0]);
-		gl.blitFramebuffer(
-			0, 0, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y,
-			0, 0, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y,
-			gl.COLOR_BUFFER_BIT, gl.NEAREST
-		);
+		//gl.bindFramebuffer(gl.READ_FRAMEBUFFER, framebuffers[FRAMEBUFFER.RENDERBUFFER]);
+		//gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+		//gl.clearBufferfv(gl.COLOR, 0, [1.0, 1.0, 1.0, 0.0]);
+		//gl.blitFramebuffer(
+		//	0, 0, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y,
+		//	0, 0, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y,
+		//	gl.COLOR_BUFFER_BIT, gl.NEAREST
+		//);
 
 		transform();
 		window.setTimeout(renderLoop, 1000.0/60.0);

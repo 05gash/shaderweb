@@ -6,7 +6,7 @@ in float dist;
 out vec4 fragColour;
 // *TODO* uniform samplerXX iChannel;
 
-vec3 blockRender(float d, vec3 color){
+float getCoverage(float d){
 	float distanceFunction = abs(dist) - width;
 	float anti;
 	anti = max(abs(dFdx(distanceFunction)), abs(dFdy(distanceFunction)));
@@ -14,13 +14,15 @@ vec3 blockRender(float d, vec3 color){
 	//anti = abs(dFdx(distanceFunction)) + abs(dFdy(distanceFunction));
 	float blend;
 
-	blend =	clamp(.5 - .75*distanceFunction/anti, 0., 1.);
-	//blend = step(distanceFunction, 0.);
+	blend = 1.-	clamp(.5 - .75*distanceFunction/anti, 0., 1.);
+	//blend = 1. - smoothstep(-anti, anti, distanceFunction);
 	//blend = step(distanceFunction, 0.);
 
-	return colour.xyz*blend;
+	return blend;
 }
+
 void main(void) {
-	fragColour.xyz = blockRender(dist, colour.xyz);
-	fragColour.w = 1.0;
+	fragColour = colour;
+	fragColour.w = getCoverage(dist);
+	
 }

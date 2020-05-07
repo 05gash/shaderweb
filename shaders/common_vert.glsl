@@ -80,5 +80,5 @@ float snoise(vec2 v) {
 	return 130.0 * dot(m, g);
 }
 float getFlowField(vec2 p){
-	return 2.*pi*snoise(p/10. + 3.);
+	return snoise(p + 3.);
 }
