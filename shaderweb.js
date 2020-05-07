@@ -217,17 +217,27 @@ async function go(canvasName){
 
 
 	// set up our starting positions
-	NUM_INSTANCES = 10;
+	NUM_INSTANCES = 1000;
+	NUM_COLORS = 10;
 	var startingPositions = [];
+	var colors = [];
+
+	function random(){
+		return Math.random()*1.2 - 0.1;
+	}
+
 	for (var inst = 0; inst<NUM_INSTANCES; inst++){
-		startingPositions = startingPositions.concat([Math.random(), Math.random()]);
+		startingPositions = startingPositions.concat([random(), random()]);
+	}
+	for (var inst = 0; inst<NUM_COLORS; inst++){
+		colors = colors.concat([Math.random(), Math.random(), Math.random()]);
 	}
 	console.log(startingPositions);
 
 	var numSegments = 20;
 
 	/* set up our transform feedback shit*/
-	renderObjects = renderObjects.concat([getStripObject(numSegments, NUM_INSTANCES, $V([0.8, 0.5, 0.5, 1.0]), 0.03)]);
+	renderObjects = renderObjects.concat([getStripObject(numSegments, NUM_INSTANCES, $V([0.8, 0.5, 0.5, 1.0]), 0.003)]);
 
 	// -- Init Vertex Array
 	var OFFSET_LOCATION = 0;
@@ -313,7 +323,23 @@ async function go(canvasName){
 		currentSourceIdx = (currentSourceIdx + 1) % 2;
 	}
 
+	function resize(canvas) {
+		// Lookup the size the browser is displaying the canvas.
+		var displayWidth  = canvas.clientWidth;
+		var displayHeight = canvas.clientHeight;
+
+		// Check if the canvas is not the same size.
+		if (canvas.width  !== displayWidth ||
+			canvas.height !== displayHeight) {
+
+			// Make the canvas the same size
+			canvas.width  = displayWidth;
+			canvas.height = displayHeight;
+		}
+	}
+
 	function renderLoop(){
+		resize(canvas);
 		var d = new Date();
 		var millis = (new Date()).getTime();
 
