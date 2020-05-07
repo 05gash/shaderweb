@@ -212,13 +212,12 @@ async function go(canvasName){
 
 
 	// set up our starting positions
+	NUM_INSTANCES = 100;
 	var startingPositions = [];
-	for (i = 0.1; i<0.9; i += 0.1){
-		startingPositions = startingPositions.concat([0.1, i]);
+	for (var inst = 0; inst<NUM_INSTANCES; inst++){
+		startingPositions = startingPositions.concat([Math.random(), Math.random()]);
 	}
 	console.log(startingPositions);
-
-	NUM_INSTANCES = startingPositions.length / 2;
 
 	var numSegments = 100;
 

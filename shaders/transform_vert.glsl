@@ -104,5 +104,12 @@ float getFlowField(vec2 p){
 void main(void) {
 	float stepSize = 0.01;
 	float theta = getFlowField(coordinates);
-	out_coords = coordinates + stepSize*vec2(cos(theta), sin(theta));	
+	out_coords = mod(coordinates + stepSize*vec2(cos(theta), sin(theta)) + vec2(0.5), vec2(1.5)) - vec2(.5);	
+
+	if (coordinates.x > 1. || coordinates.x < 0.){
+		coordinates.x = 1. - coordinates.x;
+	}
+	if (coordinates.y > 1. || coordinates.y < 0.){
+		coordinates.y = 1. - coordinates.y;
+	}
 }
