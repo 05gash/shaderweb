@@ -38,11 +38,15 @@ async function go(canvasName){
 		}
 	}
 
-	async function getShaderProgram(name, feedback_varyings){
+	async function getShaderProgram(name, commonShaders, feedback_varyings){
 		//TODO we're defining our sdf as having a boundary at width
+		var vertCommonCode = commonShaders.find( shader => shader.name == 'vert');
+		vertCommonCode = vertCommonCode!=undefined ? vertCommonCode.shader : "";
+		var fragCommonCode = commonShaders.find( shader => shader.name == 'frag');
+		fragCommonCode = fragCommonCode!=undefined ? fragCommonCode.shader : "";
 
 		var shaders = await getShaders(name);
-		var vertCode = shaders.find( shader => shader.name == 'vert').shader;
+		var vertCode = vertCommonCode + shaders.find( shader => shader.name == 'vert').shader;
 
 		//Create a vertex shader object
 		var vertShader = gl.createShader(gl.VERTEX_SHADER);
@@ -56,7 +60,7 @@ async function go(canvasName){
 		doCheck(vertShader, vertCode);
 		//Fragment shader source code
 
-		var fragCode = shaders.find( shader => shader.name == 'frag').shader;
+		var fragCode = fragCommonCode + shaders.find( shader => shader.name == 'frag').shader;
 
 		// Create fragment shader object
 		var fragShader = gl.createShader(gl.FRAGMENT_SHADER);
@@ -138,11 +142,12 @@ async function go(canvasName){
 
 	/* Create and compile Shader programs */
 
+	commonShaders = await getShaders("common");
 	//TODO we're defining our sdf as having a boundary at width
 	// Use the combined shader program object
-	shaderProgram = await getShaderProgram("main");
+	shaderProgram = await getShaderProgram("main", commonShaders);
 
-	transformProgram = await getShaderProgram("transform", ["out_coords"]);
+	transformProgram = await getShaderProgram("transform", commonShaders, ["out_coords"]);
 
 
 	/* Step5: Drawing the required object (triangle) */
@@ -212,17 +217,17 @@ async function go(canvasName){
 
 
 	// set up our starting positions
-	NUM_INSTANCES = 100;
+	NUM_INSTANCES = 10000;
 	var startingPositions = [];
 	for (var inst = 0; inst<NUM_INSTANCES; inst++){
 		startingPositions = startingPositions.concat([Math.random(), Math.random()]);
 	}
 	console.log(startingPositions);
 
-	var numSegments = 100;
+	var numSegments = 20;
 
 	/* set up our transform feedback shit*/
-	renderObjects = renderObjects.concat([getStripObject(numSegments, NUM_INSTANCES, $V([0.8, 0.5, 0.5, 1.0]), 0.0016)]);
+	renderObjects = renderObjects.concat([getStripObject(numSegments, NUM_INSTANCES, $V([0.8, 0.5, 0.5, 1.0]), 0.003)]);
 
 	// -- Init Vertex Array
 	var OFFSET_LOCATION = 0;
@@ -274,6 +279,9 @@ async function go(canvasName){
 		var destinationTransformFeedback = transformFeedbacks[destinationIdx];
 
 		gl.useProgram(transformProgram);
+
+		var particle_limits = gl.getUniformLocation(transformProgram, "particle_limits");
+		gl.uniform2fv(particle_limits, [1.1, 1.1]); 
 
 		gl.bindVertexArray(sourceVAO);
 		gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, destinationTransformFeedback);

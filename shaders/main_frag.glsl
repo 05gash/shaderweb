@@ -1,6 +1,3 @@
-#version 300 es
-#extension GL_OES_standard_derivatives : enable
-precision highp float;
 uniform vec3 iResolution;
 uniform vec4 colour;
 uniform float iTime;
