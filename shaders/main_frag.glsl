@@ -4,6 +4,7 @@ uniform float width;
 
 in vec3 out_col;
 in vec2 texCoords;
+in float lifetime;
 
 out vec4 fragColour;
 // *TODO* uniform samplerXX iChannel;
@@ -84,16 +85,17 @@ float snoise(vec2 v) {
 
 float getCoverage(){
 	
-	float dist = length(texCoords - vec2(.5)) + 0.1*snoise(10.*gl_FragCoord.xy/iResolution.xy);
+	float dist = (length(texCoords - vec2(.5))); 
 	float anti;
 	anti = max(abs(dFdx(dist)), abs(dFdy(dist)));
-	float blend = smoothstep(0.1 - anti, 0.1 + anti, dist);
+	float boundary = (0.1+0.1*snoise(3.*gl_FragCoord.xy/iResolution.xy))*smoothstep(0.0, 500., lifetime);
+	float blend = smoothstep(boundary - anti, boundary + anti, dist);
 
 	return blend;
 }
 
 void main(void) {
-	fragColour.xyz = out_col;
+	fragColour.xyz = out_col + gl_FragCoord.xyy/iResolution.xyy/5.;
 	fragColour.w = getCoverage();
 	
 }

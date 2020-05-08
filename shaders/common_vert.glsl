@@ -2,9 +2,11 @@
 #define OFFSET_LOCATION 0
 #define POSITION_LOCATION 1
 #define COLOUR_LOCATION 2
-layout(location = OFFSET_LOCATION) in vec2 coordinates;
+layout(location = OFFSET_LOCATION) in vec3 coordinates;
 layout(location = POSITION_LOCATION) in vec3 null_position;
 layout(location = COLOUR_LOCATION) in vec3 colour;
+
+uniform float iTime;
 
 #define pi 3.141592
 
@@ -82,5 +84,5 @@ float snoise(vec2 v) {
 	return 130.0 * dot(m, g);
 }
 float getFlowField(vec2 p){
-	return pi*snoise(p/2. + 5.);
+	return snoise(p*2. + 6.);
 }

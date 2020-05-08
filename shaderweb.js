@@ -217,7 +217,7 @@ async function go(canvasName){
 
 
 	// set up our starting positions
-	NUM_INSTANCES = 20000;
+	NUM_INSTANCES = 10000;
 	NUM_COLOURS = 10;
 	var startingPositions = [];
 	var colours = [];
@@ -227,10 +227,10 @@ async function go(canvasName){
 	}
 
 	for (var inst = 0; inst<NUM_INSTANCES; inst++){
-		startingPositions = startingPositions.concat([random(), random()]);
+		startingPositions = startingPositions.concat([random(), random(), 0.0]);
 	}
 	for (var inst = 0; inst<NUM_COLOURS; inst++){
-		colours = colours.concat([Math.random(), Math.random(), Math.random()]);
+		colours = colours.concat([0.2, 0.6+ 0.2*Math.random(), 0.5]);
 	}
 	console.log(startingPositions);
 
@@ -259,7 +259,7 @@ async function go(canvasName){
 		vertexBuffers[va][OFFSET_LOCATION] = gl.createBuffer();
 		gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffers[va][OFFSET_LOCATION]);
 		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(startingPositions), gl.STREAM_COPY);
-		gl.vertexAttribPointer(OFFSET_LOCATION, 2, gl.FLOAT, false, 0, 0);
+		gl.vertexAttribPointer(OFFSET_LOCATION, 3, gl.FLOAT, false, 0, 0);
 		gl.enableVertexAttribArray(OFFSET_LOCATION);
 
 		vertexBuffers[va][POSITION_LOCATION] = gl.createBuffer();
@@ -287,7 +287,7 @@ async function go(canvasName){
 	}
 
 
-	function transform() {
+	function transform(time) {
 		var destinationIdx = (currentSourceIdx + 1) % 2;
 
 		// Toggle source and destination VBO
@@ -297,6 +297,8 @@ async function go(canvasName){
 
 		gl.useProgram(transformProgram);
 
+		var time_loc = gl.getUniformLocation(transformProgram, "iTime");
+		gl.uniform1fv(time_loc, [time]); 
 		var particle_limits = gl.getUniformLocation(transformProgram, "particle_limits");
 		gl.uniform2fv(particle_limits, [0.1, 0.1]); 
 
@@ -385,7 +387,7 @@ async function go(canvasName){
 		//	gl.COLOR_BUFFER_BIT, gl.NEAREST
 		//);
 
-		transform();
+		transform((millis-start)/1000);
 		window.setTimeout(renderLoop, 1000.0/60.0);
 	}
 	renderLoop();
