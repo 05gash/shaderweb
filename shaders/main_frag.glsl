@@ -1,8 +1,10 @@
 uniform vec3 iResolution;
-uniform vec4 colour;
 uniform float iTime;
 uniform float width;
+
 in float dist;
+in vec3 out_col;
+
 out vec4 fragColour;
 // *TODO* uniform samplerXX iChannel;
 
@@ -22,7 +24,7 @@ float getCoverage(float d){
 }
 
 void main(void) {
-	fragColour = colour;
+	fragColour.xyz = out_col;
 	fragColour.w = getCoverage(dist);
 	
 }

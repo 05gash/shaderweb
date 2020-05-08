@@ -183,6 +183,7 @@ async function go(canvasName){
 
 		// Attributes per-instance when drawing sets back to 1 when drawing instances
 		gl.vertexAttribDivisor(OFFSET_LOCATION, 1);
+		gl.vertexAttribDivisor(COLOUR_LOCATION, NUM_INSTANCES/NUM_COLOURS);
 
 		gl.drawArraysInstanced(ob.renderStyle, 0, ob.size, ob.instances);
 		//gl.drawArrays(ob.renderStyle, 0, ob.size);
@@ -217,10 +218,10 @@ async function go(canvasName){
 
 
 	// set up our starting positions
-	NUM_INSTANCES = 1000;
-	NUM_COLORS = 10;
+	NUM_INSTANCES = 10000;
+	NUM_COLOURS = 10;
 	var startingPositions = [];
-	var colors = [];
+	var colours = [];
 
 	function random(){
 		return Math.random()*1.2 - 0.1;
@@ -229,8 +230,8 @@ async function go(canvasName){
 	for (var inst = 0; inst<NUM_INSTANCES; inst++){
 		startingPositions = startingPositions.concat([random(), random()]);
 	}
-	for (var inst = 0; inst<NUM_COLORS; inst++){
-		colors = colors.concat([Math.random(), Math.random(), Math.random()]);
+	for (var inst = 0; inst<NUM_COLOURS; inst++){
+		colours = colours.concat([Math.random(), Math.random(), Math.random()]);
 	}
 	console.log(startingPositions);
 
@@ -242,7 +243,8 @@ async function go(canvasName){
 	// -- Init Vertex Array
 	var OFFSET_LOCATION = 0;
 	var POSITION_LOCATION = 1;
-	var NUM_LOCATIONS = 2;
+	var COLOUR_LOCATION = 2;
+	var NUM_LOCATIONS = 3;
 
 	var currentSourceIdx = 0;
 
@@ -268,6 +270,14 @@ async function go(canvasName){
 		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(numSegments*3*2), gl.STATIC_DRAW); //empty V buffer of our procedural curves for the goddamn geometry shader thingr
 		gl.vertexAttribPointer(POSITION_LOCATION, 2, gl.FLOAT, false, 0, 0);
 		gl.enableVertexAttribArray(POSITION_LOCATION);
+		
+		// Colors
+		vertexBuffers[va][COLOUR_LOCATION] = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffers[va][COLOUR_LOCATION]);
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colours), gl.STATIC_DRAW); //v empty buffer of our colour attributes
+		gl.vertexAttribPointer(COLOUR_LOCATION, 3, gl.FLOAT, false, 0, 0);
+		gl.enableVertexAttribArray(COLOUR_LOCATION);
+		gl.vertexAttribDivisor(COLOUR_LOCATION, NUM_INSTANCES/NUM_COLOURS); // attribute used once per instance
 
 		gl.bindVertexArray(null);
 		gl.bindBuffer(gl.ARRAY_BUFFER, null);
@@ -303,6 +313,7 @@ async function go(canvasName){
 
 		// Attributes per-vertex when doing transform feedback needs setting to 0 when doing transform feedback
 		gl.vertexAttribDivisor(OFFSET_LOCATION, 0);
+		gl.vertexAttribDivisor(COLOUR_LOCATION, 0);
 
 		// Turn off rasterization - we are not drawing
 		gl.enable(gl.RASTERIZER_DISCARD);

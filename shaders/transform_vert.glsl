@@ -13,8 +13,14 @@ vec3 getNextStep(vec2 pos, float stepSize){
 	if (abs(pos.x) > 1. + particle_limits.x){
 		pos = vec2(-particle_limits.x, random(float(gl_VertexID)*pos.y));
 	}
-	if (abs(pos.y) > 1. + particle_limits.y){
-		pos = vec2(-particle_limits.y, random(float(gl_VertexID)*pos.x)).yx;
+	else if (abs(pos.y) > 1. + particle_limits.y){
+		pos = vec2(random(float(gl_VertexID)*pos.x), -particle_limits.y);
+	}
+	else if (abs(pos.y) < -particle_limits.y){
+		pos = vec2(random(float(gl_VertexID)*pos.x), 1.+particle_limits.y);
+	}
+	else if (abs(pos.x) < -particle_limits.x){
+		pos = vec2(1. + particle_limits.x, random(float(gl_VertexID)*pos.y));
 	}
 	float theta = getFlowField(pos);
 	return vec3(pos + stepSize*vec2(cos(theta), sin(theta)), theta);

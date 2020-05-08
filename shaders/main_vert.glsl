@@ -1,4 +1,6 @@
 out float dist;
+out vec3 out_col;
+
 uniform float iTime;
 uniform float width;
 uniform int numSegments;
@@ -26,4 +28,5 @@ void main(void) {
 	}
 	gl_Position.xy *=2.0;
 	gl_Position.xy -=1.0;
+	out_col = colour;
 }
