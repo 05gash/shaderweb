@@ -1,4 +1,4 @@
-uniform vec2 particle_limits;
+uniform vec2 iResolution;
 
 out vec3 out_coords;
 
@@ -11,9 +11,15 @@ vec2 randomTwoVec(vec2 p){
 }
 vec3 getNextStep(vec3 pos, float stepSize){
 	float lifetime = pos.z + 1.;
-	float bounds = particle_limits.x*2. + 1.;
-	if (pos.x > 1. + particle_limits.x || pos.x < -particle_limits.x || pos.y < -particle_limits.y || pos.y > 1. + particle_limits.y){
-		pos.xy = randomTwoVec(pos.xy)*bounds - particle_limits.x;
+	float ratio = iResolution.x/iResolution.y;
+
+	//TODO double check this logic, might as well do a proper perspective correct later on in the main pipeline makes sense that this simulation be in screen space tho 
+	if (pos.x > 1.1 || pos.x < -.1 || pos.y < -.1/ratio || pos.y > 1.1/ratio){
+		pos.xy = randomTwoVec(pos.xy);
+		pos.x*= 1.2;
+		pos.x-= .1;
+		pos.y/= ratio*1.2;
+		pos.y-= ratio*.1;
 		lifetime = 0.;
 	}
 	float theta = getFlowField(pos.xy);

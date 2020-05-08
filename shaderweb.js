@@ -299,8 +299,8 @@ async function go(canvasName){
 
 		var time_loc = gl.getUniformLocation(transformProgram, "iTime");
 		gl.uniform1fv(time_loc, [time]); 
-		var particle_limits = gl.getUniformLocation(transformProgram, "particle_limits");
-		gl.uniform2fv(particle_limits, [0.05, 0.05]); 
+		var resolution = gl.getUniformLocation(transformProgram, "iResolution");
+		gl.uniform2fv(resolution, [canvas.clientWidth, canvas.clientHeight]); 
 
 		gl.bindVertexArray(sourceVAO);
 		gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, destinationTransformFeedback);
