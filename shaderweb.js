@@ -227,7 +227,7 @@ async function go(canvasName){
 	}
 
 	for (var inst = 0; inst<NUM_INSTANCES; inst++){
-		startingPositions = startingPositions.concat([random(), random(), 0.0]);
+		startingPositions = startingPositions.concat([-1.*Math.random(), -1.*Math.random(), 0.0]);
 	}
 	for (var inst = 0; inst<NUM_COLOURS; inst++){
 		colours = colours.concat([0.2, 0.6+ 0.2*Math.random(), 0.5]);

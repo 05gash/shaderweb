@@ -18,8 +18,8 @@ vec3 getNextStep(vec3 pos, float stepSize){
 		pos.xy = randomTwoVec(pos.xy);
 		pos.x*= 1.2;
 		pos.x-= .1;
-		pos.y/= ratio*1.2;
-		pos.y-= ratio*.1;
+		pos.y*= 1.2/ratio;
+		pos.y-= .1/ratio;
 		lifetime = 0.;
 	}
 	float theta = getFlowField(pos.xy);
