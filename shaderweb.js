@@ -217,7 +217,7 @@ async function go(canvasName){
 
 
 	// set up our starting positions
-	NUM_INSTANCES = 10000;
+	NUM_INSTANCES = 1000;
 	NUM_COLOURS = 10;
 	var startingPositions = [];
 	var colours = [];
@@ -300,7 +300,7 @@ async function go(canvasName){
 		var time_loc = gl.getUniformLocation(transformProgram, "iTime");
 		gl.uniform1fv(time_loc, [time]); 
 		var particle_limits = gl.getUniformLocation(transformProgram, "particle_limits");
-		gl.uniform2fv(particle_limits, [0.1, 0.1]); 
+		gl.uniform2fv(particle_limits, [0.05, 0.05]); 
 
 		gl.bindVertexArray(sourceVAO);
 		gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, destinationTransformFeedback);
