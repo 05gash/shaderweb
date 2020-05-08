@@ -156,11 +156,11 @@ async function go(canvasName){
 	var start = d.getTime();
 
 
-	function getStripObject(numSegments, numInstances, colour, width){
+	function getSquareObject(numInstances, colour, width){
 		return {
 			program: null,
 			renderStyle: gl.TRIANGLE_STRIP, 
-			size: numSegments*2,
+			size: 4,
 			colour: colour,
 			width: width,
 			instances: numInstances
@@ -177,7 +177,6 @@ async function go(canvasName){
 
 		var widthLoc = gl.getUniformLocation(shaderProgram, "width");
 		gl.uniform1fv(widthLoc, [ob.width]);
-
 
 		gl.bindVertexArray(vertexArrays[currentSourceIdx]);
 
@@ -218,7 +217,7 @@ async function go(canvasName){
 
 
 	// set up our starting positions
-	NUM_INSTANCES = 10000;
+	NUM_INSTANCES = 20000;
 	NUM_COLOURS = 10;
 	var startingPositions = [];
 	var colours = [];
@@ -235,10 +234,8 @@ async function go(canvasName){
 	}
 	console.log(startingPositions);
 
-	var numSegments = 20;
-
 	/* set up our transform feedback shit*/
-	renderObjects = renderObjects.concat([getStripObject(numSegments, NUM_INSTANCES, $V([0.8, 0.5, 0.5, 1.0]), 0.003)]);
+	renderObjects = renderObjects.concat([getSquareObject(NUM_INSTANCES, $V([0.8, 0.5, 0.5, 1.0]), 0.0333)]);
 
 	// -- Init Vertex Array
 	var OFFSET_LOCATION = 0;
@@ -267,7 +264,7 @@ async function go(canvasName){
 
 		vertexBuffers[va][POSITION_LOCATION] = gl.createBuffer();
 		gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffers[va][POSITION_LOCATION]);
-		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(numSegments*3*2), gl.STATIC_DRAW); //empty V buffer of our procedural curves for the goddamn geometry shader thingr
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(4*3), gl.STATIC_DRAW); //empty V buffer of our procedural squares 4 vertices*3 per vert
 		gl.vertexAttribPointer(POSITION_LOCATION, 2, gl.FLOAT, false, 0, 0);
 		gl.enableVertexAttribArray(POSITION_LOCATION);
 		
@@ -376,9 +373,6 @@ async function go(canvasName){
 		gl.uniform3fv(resolutionLoc, [canvas.width, canvas.height, 0.0]); 
 		var timeLoc = gl.getUniformLocation(shaderProgram, "iTime");
 		gl.uniform1fv(timeLoc, [(millis-start)/1000.0]);
-		var numSegmentsLoc = gl.getUniformLocation(shaderProgram, "numSegments");
-		gl.uniform1iv(numSegmentsLoc, [numSegments]);
-
 		// Draw the triangle
 		renderObjects.forEach(ob => drawRenderObject(ob)); 
 		//Blit framebuffers, no Multisample texture 2d in WebGL 2

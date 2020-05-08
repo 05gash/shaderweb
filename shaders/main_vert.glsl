@@ -1,9 +1,9 @@
-out float dist;
 out vec3 out_col;
+out vec2 texCoords;
 
 uniform float iTime;
 uniform float width;
-uniform int numSegments;
+uniform vec3 iResolution;
 
 vec3 doWalk(int numSteps){
 	float stepSize = 0.005;
@@ -17,16 +17,14 @@ vec3 doWalk(int numSteps){
 }
  
 void main(void) {
-	vec3 pos = doWalk(gl_VertexID/2) + null_position.xyz;
-	if (gl_VertexID % 2 == 0){
-		gl_Position = vec4(pos.xy - 2.*width*vec2(cos(pos.z+pi/2.), sin(pos.z+pi/2.)), 0.0, 1.0);
-		dist = 2.*width;
-	}
-	else{
-		gl_Position = vec4(pos.xy + 2.*width*vec2(cos(pos.z+pi/2.), sin(pos.z+pi/2.)), 0.0, 1.0);
-		dist = -2.*width;
-	}
-	gl_Position.xy *=2.0;
-	gl_Position.xy -=1.0;
+	int x = gl_VertexID / 2;
+	int y = gl_VertexID % 2;
+	gl_Position = vec4((vec2(x, y)*2. - 1.)*width + coordinates + null_position.xy, 0., 1.);
+
+	gl_Position.y *= iResolution.x/iResolution.y;
+
+	gl_Position.xy *=2.;
+	gl_Position.xy -=1.;
 	out_col = colour;
+	texCoords = vec2(x,y);
 }
