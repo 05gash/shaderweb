@@ -88,14 +88,12 @@ float getCoverage(){
 	float dist = (length(texCoords - vec2(.5))); 
 	float anti;
 	anti = max(abs(dFdx(dist)), abs(dFdy(dist)));
-	float boundary = (0.1+0.1*snoise(3.*gl_FragCoord.xy/iResolution.xy))*smoothstep(0.0, 500., lifetime);
-	float blend = smoothstep(boundary - anti, boundary + anti, dist);
+	float boundary = clamp(1e-16, 1.0, (0.1+0.1*snoise(3.*gl_FragCoord.xy/iResolution.xy))*smoothstep(0.0, 500., lifetime));
+	float blend = smoothstep(boundary + anti, boundary - anti, dist)/(2.*pi*boundary);
 
 	return blend;
 }
 
 void main(void) {
-	fragColour.xyz = out_col + gl_FragCoord.xyy/iResolution.xyy/5.;
-	fragColour.w = getCoverage();
-	
+	fragColour.xyz = (out_col + gl_FragCoord.xyy/iResolution.xyy/5.)*getCoverage();
 }

@@ -1,6 +1,7 @@
 #version 300 es
 #extension GL_OES_standard_derivatives : enable
 precision highp float;
+#define pi 3.141592
 
 vec3 srgb2lin( vec3 cs )
 {

@@ -116,8 +116,8 @@ async function go(canvasName){
 	};
 	var texture = gl.createTexture();
 	gl.bindTexture(gl.TEXTURE_2D, texture);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y, 0, gl.RGBA, gl.FLOAT, null);
 	gl.bindTexture(gl.TEXTURE_2D, null);
 
@@ -407,9 +407,9 @@ async function go(canvasName){
 		// Pass 1
 		gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[FRAMEBUFFER.TEXTURE]);
 		//gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
-		gl.clearBufferfv(gl.COLOR, 0, [1.0, 1.0, 1.0, 1.0]);
+		gl.clearBufferfv(gl.COLOR, 0, [0.0, 0.0, 0.0, 1.0]);
 		gl.enable(gl.BLEND);
-		gl.blendFunc(gl.ONE_MINUS_SRC_ALPHA, gl.SRC_ALPHA);
+		gl.blendFunc(gl.ONE, gl.ONE);
 		// DO UNIFORMS
 		gl.useProgram(shaderProgram);
 		var resolutionLoc = gl.getUniformLocation(shaderProgram, "iResolution");
