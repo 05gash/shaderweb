@@ -96,6 +96,8 @@ async function go(canvasName){
 
 	function checkExtensions(gl){
 		gl.getExtension('OES_standard_derivatives');
+		gl.getExtension('OES_texture_float');
+		gl.getExtension('EXT_color_buffer_float');
 	}
 
 	//END HELPERS
@@ -116,38 +118,31 @@ async function go(canvasName){
 	gl.bindTexture(gl.TEXTURE_2D, texture);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y, 0, gl.RGBA, gl.FLOAT, null);
 	gl.bindTexture(gl.TEXTURE_2D, null);
 
 	// -- Init Frame Buffers
 	var FRAMEBUFFER = {
-		RENDERBUFFER: 0,
-		COLORBUFFER: 1
+		TEXTURE: 0
 	};
 	var framebuffers = [
 		gl.createFramebuffer(),
-		gl.createFramebuffer()
 	];
-	var colorRenderbuffer = gl.createRenderbuffer();
-	gl.bindRenderbuffer(gl.RENDERBUFFER, colorRenderbuffer);
-	gl.renderbufferStorageMultisample(gl.RENDERBUFFER, 4, gl.RGBA8, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y);
-
-	gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[FRAMEBUFFER.RENDERBUFFER]);
-	gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, colorRenderbuffer);
-	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-
-	gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[FRAMEBUFFER.COLORBUFFER]);
+	gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[FRAMEBUFFER.TEXTURE]);
 	gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
 	/* Create and compile Shader programs */
 
 	commonShaders = await getShaders("common");
-	//TODO we're defining our sdf as having a boundary at width
+	//NOTE: we're defining our sdf as having a boundary at width
 	// Use the combined shader program object
 	shaderProgram = await getShaderProgram("main", commonShaders);
 
 	transformProgram = await getShaderProgram("transform", commonShaders, ["out_coords"]);
+
+	//TODO make these shaders
+	postProgram = await getShaderProgram("post", commonShaders);
 
 
 	/* Step5: Drawing the required object (triangle) */
@@ -267,7 +262,7 @@ async function go(canvasName){
 		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(4*3), gl.STATIC_DRAW); //empty V buffer of our procedural squares 4 vertices*3 per vert
 		gl.vertexAttribPointer(POSITION_LOCATION, 2, gl.FLOAT, false, 0, 0);
 		gl.enableVertexAttribArray(POSITION_LOCATION);
-		
+
 		// Colors
 		vertexBuffers[va][COLOUR_LOCATION] = gl.createBuffer();
 		gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffers[va][COLOUR_LOCATION]);
@@ -341,11 +336,57 @@ async function go(canvasName){
 		// Check if the canvas is not the same size.
 		if (canvas.width  !== displayWidth ||
 			canvas.height !== displayHeight) {
-
+			
 			// Make the canvas the same size
 			canvas.width  = displayWidth;
 			canvas.height = displayHeight;
-		}
+
+			//TODO dont know if we need to delete the framebuffer of just need to attach new texture
+			//resize the framebuffers
+			framebuffers.forEach(framebuffer  => gl.deleteFramebuffer(framebuffer));
+			gl.deleteTexture(texture);
+
+			FRAMEBUFFER_SIZE = {
+				x: canvas.width,
+				y: canvas.height
+			};
+			texture = gl.createTexture();
+			gl.bindTexture(gl.TEXTURE_2D, texture);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y, 0, gl.RGBA, gl.FLOAT, null);
+			gl.bindTexture(gl.TEXTURE_2D, null);
+
+			// -- Init Frame Buffers
+			framebuffers = [
+				gl.createFramebuffer(),
+			];
+			gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[FRAMEBUFFER.TEXTURE]);
+			gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+			gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+			}
+	}
+
+	function doPostProcess(){
+		//we need to: 
+		//set up our texture for post DONE
+		//set up our shader program for post DONEISH
+		//bind the texture in as a uniform to the pass
+		//draw a fullscreen quad
+		gl.useProgram(postProgram);	
+
+		gl.bindTexture(gl.TEXTURE_2D, texture);
+		//set uniforms
+		var textureLoc = gl.getUniformLocation(postProgram, "frame");
+		gl.uniform1i(textureLoc, texture);
+
+		gl.bindVertexArray(vertexArrays[currentSourceIdx]);
+
+		// Attributes per-instance when drawing sets back to 0 when 
+		gl.vertexAttribDivisor(OFFSET_LOCATION, 0);
+		gl.vertexAttribDivisor(COLOUR_LOCATION, 0);
+
+		gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 	}
 
 	function renderLoop(){
@@ -364,8 +405,8 @@ async function go(canvasName){
 		gl.viewport(0,0,canvas.width,canvas.height);
 
 		// Pass 1
-		//gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[FRAMEBUFFER.RENDERBUFFER]);
-		gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+		gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[FRAMEBUFFER.TEXTURE]);
+		//gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
 		gl.clearBufferfv(gl.COLOR, 0, [1.0, 1.0, 1.0, 1.0]);
 		gl.enable(gl.BLEND);
 		gl.blendFunc(gl.ONE_MINUS_SRC_ALPHA, gl.SRC_ALPHA);
@@ -378,6 +419,10 @@ async function go(canvasName){
 		// Draw the triangle
 		renderObjects.forEach(ob => drawRenderObject(ob)); 
 		//Blit framebuffers, no Multisample texture 2d in WebGL 2
+
+		gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+		doPostProcess();
+		
 		//gl.bindFramebuffer(gl.READ_FRAMEBUFFER, framebuffers[FRAMEBUFFER.RENDERBUFFER]);
 		//gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
 		//gl.clearBufferfv(gl.COLOR, 0, [1.0, 1.0, 1.0, 0.0]);
