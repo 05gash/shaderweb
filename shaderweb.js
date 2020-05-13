@@ -173,6 +173,10 @@ async function go(canvasName){
 		var widthLoc = gl.getUniformLocation(shaderProgram, "width");
 		gl.uniform1fv(widthLoc, [ob.width]);
 
+		var perspectiveMatrix = perspective(5.0, canvas.width/canvas.height, 1.0, 50.);
+		var perspectiveLoc = gl.getUniformLocation(shaderProgram, "perspective");
+		gl.uniformMatrix4fv(perspectiveLoc, gl.FALSE, perspectiveMatrix);
+
 		gl.bindVertexArray(vertexArrays[currentSourceIdx]);
 
 		// Attributes per-instance when drawing sets back to 1 when drawing instances
@@ -212,7 +216,7 @@ async function go(canvasName){
 
 
 	// set up our starting positions
-	NUM_INSTANCES = 1000;
+	NUM_INSTANCES = 2000;
 	NUM_COLOURS = 10;
 	var startingPositions = [];
 	var colours = [];
@@ -222,10 +226,10 @@ async function go(canvasName){
 	}
 
 	for (var inst = 0; inst<NUM_INSTANCES; inst++){
-		startingPositions = startingPositions.concat([-1.*Math.random(), -1.*Math.random(), 0.0]);
+		startingPositions = startingPositions.concat([-1.5+(2.*Math.random()), -1.5+(2.*Math.random()), -3. - 1.2*Math.random(), 1.]);
 	}
 	for (var inst = 0; inst<NUM_COLOURS; inst++){
-		colours = colours.concat([0.2, 0.6+ 0.2*Math.random(), 0.5]);
+		colours = colours.concat([204, 104.1, 50.0]);
 	}
 	console.log(startingPositions);
 
@@ -254,13 +258,13 @@ async function go(canvasName){
 		vertexBuffers[va][OFFSET_LOCATION] = gl.createBuffer();
 		gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffers[va][OFFSET_LOCATION]);
 		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(startingPositions), gl.STREAM_COPY);
-		gl.vertexAttribPointer(OFFSET_LOCATION, 3, gl.FLOAT, false, 0, 0);
+		gl.vertexAttribPointer(OFFSET_LOCATION, 4, gl.FLOAT, false, 0, 0);
 		gl.enableVertexAttribArray(OFFSET_LOCATION);
 
 		vertexBuffers[va][POSITION_LOCATION] = gl.createBuffer();
 		gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffers[va][POSITION_LOCATION]);
 		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(4*3), gl.STATIC_DRAW); //empty V buffer of our procedural squares 4 vertices*3 per vert
-		gl.vertexAttribPointer(POSITION_LOCATION, 2, gl.FLOAT, false, 0, 0);
+		gl.vertexAttribPointer(POSITION_LOCATION, 3, gl.FLOAT, false, 0, 0); //NOTE this
 		gl.enableVertexAttribArray(POSITION_LOCATION);
 
 		// Colors
@@ -336,7 +340,7 @@ async function go(canvasName){
 		// Check if the canvas is not the same size.
 		if (canvas.width  !== displayWidth ||
 			canvas.height !== displayHeight) {
-			
+
 			// Make the canvas the same size
 			canvas.width  = displayWidth;
 			canvas.height = displayHeight;
@@ -364,7 +368,7 @@ async function go(canvasName){
 			gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[FRAMEBUFFER.TEXTURE]);
 			gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
 			gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-			}
+		}
 	}
 
 	function doPostProcess(){
@@ -388,6 +392,19 @@ async function go(canvasName){
 
 		gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 	}
+
+	function perspective(fieldOfViewInRadians, aspect, near, far) {
+		var f = Math.tan(Math.PI * 0.5 - 0.5 * fieldOfViewInRadians);
+		var rangeInv = 1.0 / (near - far);
+
+		return [
+			f / aspect, 0, 0, 0,
+			0, f, 0, 0,
+			0, 0, (near + far) * rangeInv, -1,
+			0, 0, near * far * rangeInv * 2, 0
+		];
+	}
+
 
 	function renderLoop(){
 		resize(canvas);
@@ -422,7 +439,7 @@ async function go(canvasName){
 
 		gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
 		doPostProcess();
-		
+
 		//gl.bindFramebuffer(gl.READ_FRAMEBUFFER, framebuffers[FRAMEBUFFER.RENDERBUFFER]);
 		//gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
 		//gl.clearBufferfv(gl.COLOR, 0, [1.0, 1.0, 1.0, 0.0]);

@@ -2,7 +2,7 @@
 #define OFFSET_LOCATION 0
 #define POSITION_LOCATION 1
 #define COLOUR_LOCATION 2
-layout(location = OFFSET_LOCATION) in vec3 coordinates;
+layout(location = OFFSET_LOCATION) in vec4 coordinates;
 layout(location = POSITION_LOCATION) in vec3 null_position;
 layout(location = COLOUR_LOCATION) in vec3 colour;
 
