@@ -17,9 +17,9 @@ vec3 doWalk(int numSteps){
 }
 
 float coc(float depth){
-	float aperture = 111.0;
+	float aperture = 143.0;
 	float focalLength = 6.5;
-	float planeInFocus = 4.8 + 0.5*sin(iTime/5.);
+	float planeInFocus = 5. + 0.5*sin(iTime/5.);
 	return max(4.0, abs(aperture*(focalLength*(planeInFocus - depth))/(depth*(planeInFocus - focalLength))));
 }
  

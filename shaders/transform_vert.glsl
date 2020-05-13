@@ -42,11 +42,11 @@ void main(void) {
 	vec3 shape1 = vec3(ratio*cos(theta)*sin(phi), sin(theta)*sin(phi), -5.*cos(phi) - 10.);
 
 	//shape 2
-	float x = -1. + floor(i/200.)/4.;
+	float x = -1.3 + floor(i/200.)/4.;
 	float y = -4.-mod(i,100.)/4.; 
 	vec3 shape2 = vec3(ratio*x, 0.1*sin(t/5. + x + y), y);
 
-	float param = smoothstep(2., 10., t);
+	float param = smoothstep(10., 24., t);
 	param *= param*param;
 	out_coords.xyz = param*shape1 + (1.0 - param)*shape2;
 	out_coords.w = 1.0;
