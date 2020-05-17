@@ -83,7 +83,6 @@ float snoise(vec2 v) {
 }
 
 float getCoverage(){
-	
 	float dist = (length(texCoords - vec2(.5))); 
 	float anti;
 	anti = max(abs(dFdx(dist)), abs(dFdy(dist)));
@@ -98,5 +97,5 @@ float noise(float x){
 
 void main(void) {
 	fragColour.xyz = out_col*getCoverage();
-	fragColour += 0.7*fragColour*noise(texCoords.x*104. + texCoords.y*1231.);
+	fragColour += 0.7*fragColour*noise(texCoords.x*104. + texCoords.y*1231. + iTime);
 }

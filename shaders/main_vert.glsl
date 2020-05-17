@@ -28,7 +28,7 @@ void main(void) {
 	int x = gl_VertexID / 2;
 	int y = gl_VertexID % 2;
 	vec4 coords = mvp*coordinates;
-	float coc = coc(coords.z);
+	float coc = coc(1./coords.z);
 	coords.xy = coords.xy + (vec2(x,y)*2. - 1.)*coc/iResolution.x,  + null_position.xy;
 	gl_Position = coords;
 //	gl_Position = vec4((vec2(x, y)*2. - 1.)*width + coords.xy + null_position.xy, coords.z, 1.);

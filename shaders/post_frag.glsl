@@ -16,7 +16,7 @@ out vec4 fragColour;
 //}
 
 void main(void) {
-	vec3 col = texture(frame, texCoords).xyz;
+	vec3 col = 10.*texture(frame, texCoords).xyz;
 	fragColour.xyz = lin2srgb(col/(1. + col));
 	fragColour.w = 0.0;
 }

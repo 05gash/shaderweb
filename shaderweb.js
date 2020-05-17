@@ -8,8 +8,16 @@ function getShader(name){
 		);
 }
 
-var m4 = {
+function getModel(name){
+	uri = 'shaderweb/models/' + name + '.txt';
+	return fetch(uri)
+		.then(
+			response =>
+			response.ok ? response.text() : undefined
+		);
+}
 
+var m4 = {
   perspective: function(fieldOfViewInRadians, aspect, near, far) {
     var f = Math.tan(Math.PI * 0.5 - 0.5 * fieldOfViewInRadians);
     var rangeInv = 1.0 / (near - far);
@@ -469,10 +477,10 @@ async function go(canvasName){
 		gl.uniform1fv(planeInFocusLoc, [this.planeInFocus]);
 
 
-		var projectionMat = m4.perspective(this.fov, canvas.width/canvas.height, 0.5, 100.);
+		var projectionMat = m4.perspective(this.fov, canvas.width/canvas.height, this.near, this.far);
 		var up = [0, 1, 0];
 		var cameraPosition = [this.camX, this.camY, this.camZ];
-		var fPosition = [0, 0, 0];
+		var fPosition = [this.lookAtX, this.lookAtY, this.lookAtZ];
 
 		// Compute the camera's matrix using look at.
 		var cameraMatrix = m4.lookAt(cameraPosition, fPosition, up);
@@ -525,7 +533,9 @@ async function go(canvasName){
 
 
 	// set up our starting positions
-	NUM_INSTANCES = 1000;
+	
+	model = eval(await getModel('woman'));
+	NUM_INSTANCES = model.length/4 - 18;
 	NUM_COLOURS = 10;
 	var startingPositions = [];
 	var colours = [];
@@ -534,9 +544,7 @@ async function go(canvasName){
 		return Math.random()*1.2 - 0.1;
 	}
 
-	for (var inst = 0; inst<NUM_INSTANCES; inst++){
-		startingPositions = startingPositions.concat([-1.5+(2.*Math.random()), -1.5+(2.*Math.random()), -3. - 1.2*Math.random(), 1.]);
-	}
+	startingPositions = model;
 	for (var inst = 0; inst<NUM_COLOURS; inst++){
 		colours = colours.concat([204 + 806*Math.random(), 104.1, 50.0]);
 	}
@@ -708,18 +716,28 @@ async function go(canvasName){
 	const gui = new dat.GUI();
 	var dof = gui.addFolder('dof');
 	dof.add(this, 'aperture');
-	dof.add(this, 'focalLength', 0., 1.0);
-	dof.add(this, 'planeInFocus', 0.0, 1.0);
+	dof.add(this, 'focalLength', 0., 5.);
+	dof.add(this, 'planeInFocus', 0.0, 30.0);
 
 	this.fov = 50.;
 	this.camX = 5.;
 	this.camY = 5.;
 	this.camZ = 5.;
+	this.lookAtX = 0.;
+	this.lookAtY = 0.;
+	this.lookAtZ = 0.;
+	this.near = 1.;
+	this.far = 100.;
 	var camera = gui.addFolder('camera');
 	camera.add(this, 'fov', 0, 3.14);
 	camera.add(this, 'camX');
 	camera.add(this, 'camY');
 	camera.add(this, 'camZ');
+	camera.add(this, 'lookAtX');
+	camera.add(this, 'lookAtY');
+	camera.add(this, 'lookAtZ');
+	camera.add(this, 'near');
+	camera.add(this, 'far');
 
 	function renderLoop(){
 		resize(canvas);
@@ -764,7 +782,7 @@ async function go(canvasName){
 		//	gl.COLOR_BUFFER_BIT, gl.NEAREST
 		//);
 
-		transform((millis-start)/1000);
+		//transform((millis-start)/1000);
 		window.setTimeout(renderLoop, 1000.0/60.0);
 	}
 	renderLoop();
