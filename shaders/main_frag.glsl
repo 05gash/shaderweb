@@ -89,7 +89,6 @@ float getCoverage(){
 	anti = max(abs(dFdx(dist)), abs(dFdy(dist)));
 	float boundary = 0.44;
 	float blend = smoothstep(boundary + anti, boundary - anti, dist);
-
 	return blend;
 }
 

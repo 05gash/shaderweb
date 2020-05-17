@@ -39,14 +39,14 @@ void main(void) {
 	//shape1
 	float theta = i/42. + t/5.;
 	float phi = mod(i, 57.) - t/20.;
-	vec3 shape1 = vec3(ratio*cos(theta)*sin(phi), sin(theta)*sin(phi), -5.*cos(phi) - 10.);
+	vec3 shape1 = vec3(ratio*cos(theta)*sin(phi), sin(theta)*sin(phi), cos(phi));
 
 	//shape 2
-	float x = -1.3 + floor(i/200.)/4.;
-	float y = -4.-mod(i,100.)/4.; 
-	vec3 shape2 = vec3(ratio*x, 0.1*sin(t/5. + x + y), y);
+	float x = floor(i/31.) - 31./2.;
+	float y = mod(i,31.) - 31./2.; 
+	vec3 shape2 = vec3(x, 0., y);
 
-	float param = smoothstep(10., 24., t);
+	float param = 0.0;
 	param *= param*param;
 	out_coords.xyz = param*shape1 + (1.0 - param)*shape2;
 	out_coords.w = 1.0;
