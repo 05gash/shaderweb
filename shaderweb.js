@@ -582,8 +582,8 @@ async function go(canvasName){
 
 		var projectionMat = m4.perspective(this.fov, canvas.width/canvas.height, this.near, this.far);
 		var up = [0, 1, 0];
-		var cameraPosition = [this.camLength*Math.cos(camPhi)*Math.sin(camTheta), this.camLength*Math.cos(camPhi)*Math.cos(camTheta), this.camLength*Math.sin(camPhi)];
-		var fPosition = [this.lookAtX, this.lookAtY, this.lookAtZ];
+		var cameraPosition = [this.camParams.length*Math.cos(this.camParams.phi)*Math.sin(this.camParams.theta), this.camParams.length*Math.cos(this.camParams.phi)*Math.cos(this.camParams.theta), this.camParams.length*Math.sin(this.camParams.phi)];
+		var fPosition = [lookAtX, lookAtY, this.lookAtZ];
 
 		// Compute the camera's matrix using look at.
 		var cameraMatrix = m4.lookAt(cameraPosition, fPosition, up);
@@ -611,30 +611,32 @@ async function go(canvasName){
 		renderObjects.forEach(ob => gl.deleteBuffer(ob.vbo));
 	}
 
-//	const mouseInput = true;
-//	var isDrawing = false;
-//
-//	canvas.addEventListener("mousedown", function(e) 
-//		{ 
-//			isDrawing = true;
-//		}); 
-//	canvas.addEventListener("mousemove", function(e) 
-//		{ 
-//			if (isDrawing){
-//				const mousePos = getMousePosition(canvas, e);
-//			}
-//		}); 
-//	canvas.addEventListener("mouseup", function(e) 
-//		{ 
-//			isDrawing = false;
-//		}); 
-//
-//	function getMousePosition(canvas, event) { 
-//		let rect = canvas.getBoundingClientRect(); 
-//		let x = (event.clientX - rect.left)/(canvas.width);
-//		let y = 1.0 - (event.clientY - rect.top)/(canvas.height);
-//		return [x, y];
-//	} 
+	const mouseInput = true;
+	var isDrawing = false;
+
+	canvas.addEventListener("mousedown", function(e) 
+		{ 
+			isDrawing = true;
+		}); 
+	canvas.addEventListener("mousemove", function(e) 
+		{ 
+			if (isDrawing){
+				const mousePos = getMousePosition(canvas, e);
+				lookAtX = mousePos[0]*.5;
+				lookAtY = mousePos[1]*.5;
+			}
+		}); 
+	canvas.addEventListener("mouseup", function(e) 
+		{ 
+			isDrawing = false;
+		}); 
+
+	function getMousePosition(canvas, event) { 
+		let rect = canvas.getBoundingClientRect(); 
+		let x = (event.clientX - rect.left)/(canvas.width);
+		let y = 1.0 - (event.clientY - rect.top)/(canvas.height);
+		return [x, y];
+	} 
 
 	var renderObjects = [];
 
@@ -828,24 +830,20 @@ async function go(canvasName){
 
 	this.fov = 1.;
 	this.camLength = 10.;
-	this.lookAtX = 0.;
-	this.lookAtY = 0.;
+	var lookAtX = 0.;
+	var lookAtY = 0.;
 	this.lookAtZ = 0.;
 	this.near = 1.;
 	this.far = 100.;
 	var camera = gui.addFolder('camera');
 	camera.add(this, 'fov', 0, 3.14);
-	camera.add(this, 'lookAtX');
-	camera.add(this, 'lookAtY');
 	camera.add(this, 'lookAtZ');
 	camera.add(this, 'near');
 	camera.add(this, 'far');
 	cameraAnimations = anim_const("length", 10)
-		.seq(anim_const("phi", 2))
+		.seq(anim_const("phi", 1.4))
 		.seq(anim_const("theta", 0))
-		.seq(anim_interpolated(ease_cubic, "length", 4, 30);
-			.par(anim_interpolated(ease_cubic, "phi", 1.1, 30))
-			.par(anim_interpolated(ease_cubic, "theta", 1.1, 30))
+		.seq(anim_interpolated(ease_cubic, "length", 4, 10)
 		);
 
 	function renderLoop(){
@@ -878,7 +876,7 @@ async function go(canvasName){
 		gl.uniform1fv(timeLoc, [timeMillis]);
 		// Draw the triangle
 		
-		this.camLength = cameraAnimations(timeMillis).length;
+		this.camParams = cameraAnimations(timeMillis);
 		renderObjects.forEach(ob => drawRenderObject(ob)); 
 		//Blit framebuffers, no Multisample texture 2d in WebGL 2
 
