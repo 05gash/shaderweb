@@ -33,7 +33,7 @@ vec4 getNextStep(vec4 pos, float stepSize){
 }
 
 void main(void) {
-	float stepSize = 0.0002;
+	float stepSize = 0.0001;
 	
 	out_coords = getNextStep(coordinates, stepSize);
 	//

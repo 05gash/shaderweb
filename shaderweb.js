@@ -583,7 +583,7 @@ async function go(canvasName){
 		var projectionMat = m4.perspective(this.fov, canvas.width/canvas.height, this.near, this.far);
 		var up = [0, 1, 0];
 		var cameraPosition = [this.camParams.length*Math.cos(this.camParams.phi)*Math.sin(this.camParams.theta), this.camParams.length*Math.cos(this.camParams.phi)*Math.cos(this.camParams.theta), this.camParams.length*Math.sin(this.camParams.phi)];
-		var fPosition = [lookAtX, lookAtY, this.lookAtZ];
+		var fPosition = [this.camParams.lookAtX, this.camParams.lookAtY, this.lookAtZ];
 
 		// Compute the camera's matrix using look at.
 		var cameraMatrix = m4.lookAt(cameraPosition, fPosition, up);
@@ -622,8 +622,6 @@ async function go(canvasName){
 		{ 
 			if (isDrawing){
 				const mousePos = getMousePosition(canvas, e);
-				lookAtX = mousePos[0]*.5;
-				lookAtY = mousePos[1]*.5;
 			}
 		}); 
 	canvas.addEventListener("mouseup", function(e) 
@@ -819,7 +817,7 @@ async function go(canvasName){
 		gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 	}
 
-	this.aperture = 9.;
+	this.aperture = 24.;
 	this.focalLength = .56;
 	this.planeInFocus = 2.28;
 	const gui = new dat.GUI();
@@ -828,10 +826,8 @@ async function go(canvasName){
 	dof.add(this, 'focalLength', 0., 5.);
 	dof.add(this, 'planeInFocus', 0.0, 3.);
 
-	this.fov = 1.;
+	this.fov = .7;
 	this.camLength = 10.;
-	var lookAtX = 0.;
-	var lookAtY = 0.;
 	this.lookAtZ = 0.;
 	this.near = 1.;
 	this.far = 100.;
@@ -843,8 +839,50 @@ async function go(canvasName){
 	cameraAnimations = anim_const("length", 10)
 		.seq(anim_const("phi", 1.4))
 		.seq(anim_const("theta", 0))
-		.seq(anim_interpolated(ease_cubic, "length", 4, 10)
+		.seq(anim_const("lookAtX", 0))
+		.seq(anim_const("lookAtY", 0))
+		.seq(
+			anim_interpolated(ease_cubic, "length", 4, 20)
+			.par(anim_interpolated(ease_cubic, "lookAtY", 1.0, 20))
+			.par(anim_interpolated(ease_cubic, "phi", 0.8, 20))
 		);
+
+	function chooseBetween(min, max){
+		return min + Math.random()*(min-max);
+	}
+
+	var travelTime = 30;
+	function addDistanceInTime(dist){
+		const rtn = dist;
+		if(Math.random() > 0.5){
+			return -rtn;
+		}
+		else{
+			return rtn;
+		}
+	}
+
+	function chooseCameraParams(time){
+		let startPhi = chooseBetween(1,1.3);;
+		let startTheta = chooseBetween(0,1);;
+		let startLength = chooseBetween(7, 10);
+		let startLookAtY = chooseBetween(0, .5);
+		cameraAnimations = anim_const("length", startLength)
+			.seq(anim_const("phi", startPhi))
+			.seq(anim_const("theta", 0))
+			.seq(anim_const("lookAtX", 0))
+			.seq(anim_const("lookAtY", startLookAtY))
+			.seq(anim_delay(time-10.))
+			.seq(
+				anim_interpolated(ease_cubic, "length", startLength+addDistanceInTime(2), time + 30)
+				.par(anim_interpolated(ease_cubic, "lookAtY", startLookAtY + addDistanceInTime(.5), time + 30))
+				.par(anim_interpolated(ease_cubic, "phi", startPhi + addDistanceInTime(1), time + 30))
+				.par(anim_interpolated(ease_cubic, "theta", startTheta + addDistanceInTime(1), time + 30))
+			);
+		console.log(cameraAnimations);
+	}
+
+	Tone.Transport.scheduleRepeat(chooseCameraParams, "7m", "+7m");
 
 	function renderLoop(){
 		resize(canvas);
@@ -875,7 +913,7 @@ async function go(canvasName){
 		var timeLoc = gl.getUniformLocation(shaderProgram, "iTime");
 		gl.uniform1fv(timeLoc, [timeMillis]);
 		// Draw the triangle
-		
+
 		this.camParams = cameraAnimations(timeMillis);
 		renderObjects.forEach(ob => drawRenderObject(ob)); 
 		//Blit framebuffers, no Multisample texture 2d in WebGL 2
@@ -898,4 +936,80 @@ async function go(canvasName){
 	renderLoop();
 
 	//TODO, continue fan code. You haven't tested it yet, and you havent tested the object being used to pass around buffer references
+}
+
+function doTone(){
+	//the feedback delay
+
+	// SETUP REVERB
+	var reverb = new Tone.Freeverb({
+		"roomSize" : 0.9,
+		"cutoff" : 5000
+	}).toMaster();
+
+	var feedbackDelay = new Tone.FeedbackDelay({
+		"delayTime" : 0.75,
+		"feedback" : 0.9,
+		"wet" : 0.7
+	}).connect(reverb);
+
+	var split = new Tone.Mono().connect(feedbackDelay);
+
+	var sounds = new Tone.Players({
+		"Am_1" : "sound/sounds/Am_1.ogg",
+		"Am_2" : "sound/sounds/Am_2.ogg",
+		"Am_3" : "sound/sounds/Am_3.ogg",
+		"Am_4" : "sound/sounds/Am_4.ogg",
+		"Am_5" : "sound/sounds/Am_5.ogg",
+		"Am_6" : "sound/sounds/Am_6.ogg",
+		"Am_7" : "sound/sounds/Am_7.ogg",
+		"Am_8" : "sound/sounds/Am_8.ogg",
+
+		"Dm_1" : "sound/sounds/Dm_1.ogg",
+		"Dm_2" : "sound/sounds/Dm_2.ogg",
+		"Dm_3" : "sound/sounds/Dm_3.ogg",
+		"Dm_4" : "sound/sounds/Dm_4.ogg",
+		"Dm_5" : "sound/sounds/Dm_5.ogg",
+		"Dm_6" : "sound/sounds/Dm_6.ogg",
+		"Dm_7" : "sound/sounds/Dm_7.ogg",
+		"Dm_8" : "sound/sounds/Dm_8.ogg",
+
+		"F_1" : "sound/sounds/F_1.ogg",
+		"F_2" : "sound/sounds/F_2.ogg",
+		"F_3" : "sound/sounds/F_3.ogg",
+		"F_4" : "sound/sounds/F_4.ogg",
+		"F_5" : "sound/sounds/F_5.ogg",
+		"F_6" : "sound/sounds/F_6.ogg",
+		"F_7" : "sound/sounds/F_7.ogg",
+		"F_8" : "sound/sounds/F_8.ogg",
+		"F_9" : "sound/sounds/F_9.ogg"
+	}, () => {
+		document.querySelector("tone-button").removeAttribute("disabled")
+	}).connect(split);
+
+	var f_samples = ["F_1", "F_2", "F_3", "F_4", "F_5", "F_6", "F_7", "F_8", "F_9"];
+	var a_samples = ["Am_1", "Am_2", "Am_3", "Am_4", "Am_5", "Am_6", "Am_7", "Am_8"];
+	var d_samples = ["Dm_1",  "Dm_2",  "Dm_3",  "Dm_4",  "Dm_5",  "Dm_6",  "Dm_7",  "Dm_8"];
+	var sample_collection = [f_samples, a_samples, d_samples];
+
+	function playSample(time){
+		samples = sample_collection[Math.floor(3.0*Math.sin(time/220.0))];
+		//console.log(3.0*Math.sin(time/220.0));
+		//console.log(samples);
+		player = sounds.get(samples[Math.floor(Math.random()*samples.length)])
+		player.start();
+	}
+
+	function changeTempo(time){
+		Tone.Transport.bpm.rampTo(Math.random()*30 + 90, "+5m");
+	}
+	function changeParams(time){
+		feedbackDelay.delayTime.rampTo(Math.random()*0.6 + 0.4, "+5m");
+	}
+
+	Tone.Transport.scheduleRepeat(playSample, "5m");
+	Tone.Transport.scheduleRepeat(changeTempo, "20m", "+20m");
+	Tone.Transport.scheduleRepeat(changeParams, "30m", "+30m");
+	//bind the interface
+	document.querySelector("button").addEventListener('mousedown', e => {Tone.Transport.toggle(); go("lol")});
 }
