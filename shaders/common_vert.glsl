@@ -172,6 +172,5 @@ float snoise(vec3 v){
 }
 
 float getFlowField(vec3 p){
-	return snoise(p);
+	return snoise(p + snoise(p));
 }
-

@@ -571,6 +571,12 @@ async function go(canvasName){
 		var widthLoc = gl.getUniformLocation(shaderProgram, "width");
 		gl.uniform1fv(widthLoc, [ob.width]);
 
+		var cutoffLoc = gl.getUniformLocation(shaderProgram, "cutoffParam");
+		gl.uniform1fv(cutoffLoc, [this.cutoffParam]);
+
+		var boundsLoc = gl.getUniformLocation(shaderProgram, "bounds");
+		gl.uniform2fv(boundsLoc, [this.boundsLow, this.boundsHi]);
+
 		var apertureLoc = gl.getUniformLocation(shaderProgram, "aperture");
 		gl.uniform1fv(apertureLoc, [this.aperture]);
 		var focalLengthLoc = gl.getUniformLocation(shaderProgram, "focalLength");
@@ -580,7 +586,7 @@ async function go(canvasName){
 		gl.uniform1fv(planeInFocusLoc, [this.planeInFocus]);
 
 
-		var projectionMat = m4.perspective(this.fov, canvas.width/canvas.height, this.near, this.far);
+		var projectionMat = m4.perspective(this.fov, canvas.height/canvas.width, this.near, this.far);
 		var up = [0, 1, 0];
 		var cameraPosition = [this.camParams.length*Math.cos(this.camParams.phi)*Math.sin(this.camParams.theta), this.camParams.length*Math.cos(this.camParams.phi)*Math.cos(this.camParams.theta), this.camParams.length*Math.sin(this.camParams.phi)];
 		var fPosition = [this.camParams.lookAtX, this.camParams.lookAtY, this.lookAtZ];
@@ -653,7 +659,7 @@ async function go(canvasName){
 
 	startingPositions = model;//new Array(NUM_INSTANCES*4);
 	for (var inst = 0; inst<NUM_COLOURS; inst++){
-		colours = colours.concat([806*Math.random(), 400.*Math.random(), 50.0]);
+		colours = colours.concat([406*Math.random(), 200.*Math.random(), 30.0]);
 	}
 	console.log(startingPositions);
 
@@ -724,6 +730,9 @@ async function go(canvasName){
 		gl.uniform1fv(time_loc, [time]); 
 		var resolution = gl.getUniformLocation(transformProgram, "iResolution");
 		gl.uniform2fv(resolution, [canvas.clientWidth, canvas.clientHeight]); 
+
+		var boundsLoc = gl.getUniformLocation(transformProgram, "bounds");
+		gl.uniform2fv(boundsLoc, [this.boundsLow, this.boundsHi]);
 
 		gl.bindVertexArray(sourceVAO);
 		gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, destinationTransformFeedback);
@@ -817,16 +826,24 @@ async function go(canvasName){
 		gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 	}
 
-	this.aperture = 24.;
-	this.focalLength = .56;
-	this.planeInFocus = 2.28;
+	this.aperture = 11.;
+	this.focalLength = .33;
+	this.planeInFocus = 0.4;
+
+	this.boundsLow = .26;
+	this.boundsHi = 3.0;
+	this.cutoffParam = 0.08;
 	const gui = new dat.GUI();
+	var transformFolder = gui.addFolder('transform');
+	transformFolder.add(this, 'boundsLow', 0, 3);
+	transformFolder.add(this, 'boundsHi', 0, 3);
+	transformFolder.add(this, 'cutoffParam', 0, 1);
 	var dof = gui.addFolder('dof');
 	dof.add(this, 'aperture');
 	dof.add(this, 'focalLength', 0., 5.);
 	dof.add(this, 'planeInFocus', 0.0, 3.);
 
-	this.fov = .7;
+	this.fov = 1.42;
 	this.camLength = 10.;
 	this.lookAtZ = 0.;
 	this.near = 1.;
@@ -866,7 +883,7 @@ async function go(canvasName){
 		let startPhi = chooseBetween(1,1.3);;
 		let startTheta = chooseBetween(0,1);;
 		let startLength = chooseBetween(7, 10);
-		let startLookAtY = chooseBetween(0, .5);
+		let startLookAtY = chooseBetween(0.4, .5);
 		cameraAnimations = anim_const("length", startLength)
 			.seq(anim_const("phi", startPhi))
 			.seq(anim_const("theta", 0))
@@ -875,7 +892,7 @@ async function go(canvasName){
 			.seq(anim_delay(time-10.))
 			.seq(
 				anim_interpolated(ease_cubic, "length", startLength+addDistanceInTime(2), time + 30)
-				.par(anim_interpolated(ease_cubic, "lookAtY", startLookAtY + addDistanceInTime(.5), time + 30))
+				.par(anim_interpolated(ease_cubic, "lookAtY", startLookAtY + addDistanceInTime(.7), time + 30))
 				.par(anim_interpolated(ease_cubic, "phi", startPhi + addDistanceInTime(1), time + 30))
 				.par(anim_interpolated(ease_cubic, "theta", startTheta + addDistanceInTime(1), time + 30))
 			);

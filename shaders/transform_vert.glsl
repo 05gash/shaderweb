@@ -1,4 +1,5 @@
 uniform vec2 iResolution;
+uniform vec2 bounds;
 
 out vec4 out_coords;
 
@@ -21,19 +22,19 @@ vec4 getNextStep(vec4 pos, float stepSize){
 	//	pos.y-= .1/ratio;
 	//}
 	
-	if( length(pos.xyz) > 2.){
+	if( length(pos.xyz) > bounds.y){
 		vec2 twoVec = 2.*pi*randomTwoVec(pos.xy);
-		return vec4(0.2*cos(twoVec.x)*sin(twoVec.y), 0.2*sin(twoVec.x)*sin(twoVec.y), 0.2*cos(twoVec.y), 1.0);
+		return vec4(bounds.x*cos(twoVec.x)*sin(twoVec.y), bounds.x*sin(twoVec.x)*sin(twoVec.y), bounds.x*cos(twoVec.y), 1.0);
 	}
 	else{
 		float theta = 2.*pi*getFlowField(pos.xyz);
-		return vec4(pos.x + stepSize*cos(theta), pos.y, pos.z + stepSize*sin(theta), pos.w);//stepSize*vec2(cos(theta), sin(theta)), pos.z, 1.0);
+		return vec4(pos.x + stepSize*cos(theta), pos.y+stepSize/2., pos.z + stepSize*sin(theta), pos.w);//stepSize*vec2(cos(theta), sin(theta)), pos.z, 1.0);
 	}
 	
 }
 
 void main(void) {
-	float stepSize = 0.0001;
+	float stepSize = 0.0005;
 	
 	out_coords = getNextStep(coordinates, stepSize);
 	//
