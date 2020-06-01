@@ -172,5 +172,7 @@ float snoise(vec3 v){
 }
 
 float getFlowField(vec3 p){
+	float seg = floor(float(gl_VertexID)/20403.);
+	p = p + seg;
 	return snoise(p + snoise(p));
 }

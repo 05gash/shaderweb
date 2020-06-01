@@ -12,6 +12,7 @@ uniform float aperture;
 uniform float focalLength;
 uniform float planeInFocus;
 
+
 float coc(float depth){
 	return max(2.0, abs(aperture*(focalLength*(planeInFocus - depth))/(depth*(planeInFocus - focalLength))));
 }

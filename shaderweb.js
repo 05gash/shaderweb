@@ -417,8 +417,23 @@ async function getShaders(name){
 	return shaders
 }
 
-async function go(canvasName){
+async function go(quality){
 	//HELPERS
+
+    console.log(quality);
+    //set up our quality parameters
+
+    if(quality == "low"){
+        this.aperture = 3.;
+    }
+    else if(quality == "medium"){
+        this.aperture = 6.;
+    }
+    else{
+        this.aperture = 11.;
+    }
+
+
 	function getUrlParameter(name) {
 		name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
 		var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
@@ -496,11 +511,11 @@ async function go(canvasName){
 		gl.getExtension('OES_standard_derivatives');
 		gl.getExtension('OES_texture_float');
 		gl.getExtension('EXT_color_buffer_float');
+		gl.getExtension('EXT_float_blend');
 	}
 
 	//END HELPERS
-	console.log(canvasName);
-	var canvas = document.getElementById(canvasName);
+	var canvas = document.getElementById("particles");
 	var gl = canvas.getContext('webgl2', {alpha: false});
 
 	checkExtensions(gl);
@@ -607,7 +622,8 @@ async function go(canvasName){
 
 		// Attributes per-instance when drawing sets back to 1 when drawing instances
 		gl.vertexAttribDivisor(OFFSET_LOCATION, 1);
-		gl.vertexAttribDivisor(COLOUR_LOCATION, NUM_INSTANCES/NUM_COLOURS);
+        gl.vertexAttribDivisor(COLOUR_LOCATION, NUM_INSTANCES/NUM_COLOURS);
+		gl.vertexAttribDivisor(POSITION_LOCATION, 0);
 
 		gl.drawArraysInstanced(ob.renderStyle, 0, ob.size, ob.instances);
 		//gl.drawArrays(ob.renderStyle, 0, ob.size);
@@ -619,6 +635,9 @@ async function go(canvasName){
 
 	const mouseInput = true;
 	var isDrawing = false;
+    mousePos = [0, 0]
+    pointerPos = [0, 0];
+    mouseVel = [0, 0];
 
 	canvas.addEventListener("mousedown", function(e) 
 		{ 
@@ -627,7 +646,7 @@ async function go(canvasName){
 	canvas.addEventListener("mousemove", function(e) 
 		{ 
 			if (isDrawing){
-				const mousePos = getMousePosition(canvas, e);
+                mousePos = getMousePosition(canvas, e);
 			}
 		}); 
 	canvas.addEventListener("mouseup", function(e) 
@@ -648,8 +667,9 @@ async function go(canvasName){
 	// set up our starting positions
 
 	model = eval(await getModel('head'));
-	NUM_INSTANCES = model.length/4 - 23;
-	NUM_COLOURS = 10;
+	NUM_INSTANCES = model.length/4 - 24;
+    console.log(NUM_INSTANCES);
+	NUM_COLOURS = 3;
 	var startingPositions = [];
 	var colours = [];
 
@@ -661,7 +681,6 @@ async function go(canvasName){
 	for (var inst = 0; inst<NUM_COLOURS; inst++){
 		colours = colours.concat([406*Math.random(), 200.*Math.random(), 30.0]);
 	}
-	console.log(startingPositions);
 
 	/* set up our transform feedback shit*/
 	renderObjects = renderObjects.concat([getSquareObject(NUM_INSTANCES, $V([0.8, 0.5, 0.5, 1.0]), 0.0333)]);
@@ -717,6 +736,11 @@ async function go(canvasName){
 
 
 	function transform(time) {
+        for (var i = 0; i<2; i++) {
+            var newPointerPos = 0.9*pointerPos[i] + 0.1*mousePos[i];
+            mouseVel[i] = newPointerPos - pointerPos[i];
+            pointerPos[i] = newPointerPos;
+        }
 		var destinationIdx = (currentSourceIdx + 1) % 2;
 
 		// Toggle source and destination VBO
@@ -734,13 +758,16 @@ async function go(canvasName){
 		var boundsLoc = gl.getUniformLocation(transformProgram, "bounds");
 		gl.uniform2fv(boundsLoc, [this.boundsLow, this.boundsHi]);
 
+		var mouseLoc = gl.getUniformLocation(transformProgram, "mouseVel");
+		gl.uniform2fv(mouseLoc, mouseVel);
+
 		gl.bindVertexArray(sourceVAO);
 		gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, destinationTransformFeedback);
 
 		// NOTE: The following two lines shouldn't be necessary, but are required to work in ANGLE
 		// due to a bug in its handling of transform feedback objects.
 		// https://bugs.chromium.org/p/angleproject/issues/detail?id=2051
-		gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, vertexBuffers[destinationIdx][OFFSET_LOCATION]);
+		//gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, vertexBuffers[destinationIdx][OFFSET_LOCATION]);
 
 		// Attributes per-vertex when doing transform feedback needs setting to 0 when doing transform feedback
 		gl.vertexAttribDivisor(OFFSET_LOCATION, 0);
@@ -826,7 +853,6 @@ async function go(canvasName){
 		gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 	}
 
-	this.aperture = 11.;
 	this.focalLength = .33;
 	this.planeInFocus = 0.4;
 
@@ -857,9 +883,9 @@ async function go(canvasName){
 		.seq(anim_const("phi", 1.4))
 		.seq(anim_const("theta", 0))
 		.seq(anim_const("lookAtX", 0))
-		.seq(anim_const("lookAtY", 0))
+		.seq(anim_const("lookAtY", 0.5))
 		.seq(
-			anim_interpolated(ease_cubic, "length", 4, 20)
+			anim_interpolated(ease_cubic, "length", 4, 40)
 			.par(anim_interpolated(ease_cubic, "lookAtY", 1.0, 20))
 			.par(anim_interpolated(ease_cubic, "phi", 0.8, 20))
 		);
@@ -883,7 +909,7 @@ async function go(canvasName){
 		let startPhi = chooseBetween(1,1.3);;
 		let startTheta = chooseBetween(0,1);;
 		let startLength = chooseBetween(7, 10);
-		let startLookAtY = chooseBetween(0.4, .5);
+		let startLookAtY = chooseBetween(3.4, 3.5);
 		cameraAnimations = anim_const("length", startLength)
 			.seq(anim_const("phi", startPhi))
 			.seq(anim_const("theta", 0))
@@ -892,14 +918,14 @@ async function go(canvasName){
 			.seq(anim_delay(time-10.))
 			.seq(
 				anim_interpolated(ease_cubic, "length", startLength+addDistanceInTime(2), time + 30)
-				.par(anim_interpolated(ease_cubic, "lookAtY", startLookAtY + addDistanceInTime(.7), time + 30))
+				.par(anim_interpolated(ease_cubic, "lookAtY", startLookAtY + addDistanceInTime(.1), time + 30))
 				.par(anim_interpolated(ease_cubic, "phi", startPhi + addDistanceInTime(1), time + 30))
 				.par(anim_interpolated(ease_cubic, "theta", startTheta + addDistanceInTime(1), time + 30))
 			);
 		console.log(cameraAnimations);
 	}
 
-	Tone.Transport.scheduleRepeat(chooseCameraParams, "7m", "+7m");
+	Tone.Transport.scheduleRepeat(chooseCameraParams, "15m", "+14m");
 
 	function renderLoop(){
 		resize(canvas);
@@ -1028,5 +1054,12 @@ function doTone(){
 	Tone.Transport.scheduleRepeat(changeTempo, "20m", "+20m");
 	Tone.Transport.scheduleRepeat(changeParams, "30m", "+30m");
 	//bind the interface
-	document.querySelector("button").addEventListener('mousedown', e => {Tone.Transport.toggle(); go("lol")});
+}
+
+function clickMe(quality){
+    document.getElementById('main').classList.replace('visible', 'clicked'); 
+    document.getElementById('particles').classList.add('visible'); 
+    go(quality.innerText);
+    doTone();
+    Tone.Transport.toggle();
 }

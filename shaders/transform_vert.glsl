@@ -1,6 +1,8 @@
 uniform vec2 iResolution;
 uniform vec2 bounds;
 
+uniform vec2 mouseVel;
+
 out vec4 out_coords;
 
 float random(float x){
@@ -27,14 +29,14 @@ vec4 getNextStep(vec4 pos, float stepSize){
 		return vec4(bounds.x*cos(twoVec.x)*sin(twoVec.y), bounds.x*sin(twoVec.x)*sin(twoVec.y), bounds.x*cos(twoVec.y), 1.0);
 	}
 	else{
-		float theta = 2.*pi*getFlowField(pos.xyz);
+		float theta = 2.*pi*getFlowField(pos.xyz) + length(mouseVel); 
 		return vec4(pos.x + stepSize*cos(theta), pos.y+stepSize/2., pos.z + stepSize*sin(theta), pos.w);//stepSize*vec2(cos(theta), sin(theta)), pos.z, 1.0);
 	}
 	
 }
 
 void main(void) {
-	float stepSize = 0.0005;
+	float stepSize = 0.001 + 0.1*length(mouseVel);
 	
 	out_coords = getNextStep(coordinates, stepSize);
 	//
