@@ -869,7 +869,7 @@ async function go(quality){
 	dof.add(this, 'focalLength', 0., 5.);
 	dof.add(this, 'planeInFocus', 0.0, 3.);
 
-	this.fov = 1.42;
+	this.fov = 1.6;
 	this.camLength = 10.;
 	this.lookAtZ = 0.;
 	this.near = 1.;
@@ -909,7 +909,7 @@ async function go(quality){
 		let startPhi = chooseBetween(1,1.3);;
 		let startTheta = chooseBetween(0,1);;
 		let startLength = chooseBetween(7, 10);
-		let startLookAtY = chooseBetween(3.4, 3.5);
+		let startLookAtY = chooseBetween(0.7, 0.8);
 		cameraAnimations = anim_const("length", startLength)
 			.seq(anim_const("phi", startPhi))
 			.seq(anim_const("theta", 0))
