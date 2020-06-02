@@ -872,12 +872,7 @@ async function go(quality){
 	this.fov = 1.6;
 	this.lookAtZ = 0.;
 	this.near = 1.;
-	this.far = 100.;
-	var camera = gui.addFolder('camera');
-	camera.add(this, 'fov', 0, 3.14);
-	camera.add(this, 'lookAtZ');
-	camera.add(this, 'near');
-	camera.add(this, 'far');
+	this.far = 20.;
 	cameraAnimations = anim_const("length", 10)
 		.seq(anim_const("phi", 1.4))
 		.seq(anim_const("theta", 0))
