@@ -870,7 +870,6 @@ async function go(quality){
 	dof.add(this, 'planeInFocus', 0.0, 3.);
 
 	this.fov = 1.6;
-	this.camLength = 10.;
 	this.lookAtZ = 0.;
 	this.near = 1.;
 	this.far = 100.;
@@ -882,7 +881,7 @@ async function go(quality){
 	cameraAnimations = anim_const("length", 10)
 		.seq(anim_const("phi", 1.4))
 		.seq(anim_const("theta", 0))
-		.seq(anim_const("lookAtX", 0))
+		.seq(anim_const("lookAtX", -.5))
 		.seq(anim_const("lookAtY", 0.5))
 		.seq(
 			anim_interpolated(ease_cubic, "length", 4, 40)
@@ -1027,7 +1026,7 @@ function doTone(){
 		"F_8" : "sound/sounds/F_8.ogg",
 		"F_9" : "sound/sounds/F_9.ogg"
 	}, () => {
-		document.querySelector("tone-button").removeAttribute("disabled")
+        document
 	}).connect(split);
 
 	var f_samples = ["F_1", "F_2", "F_3", "F_4", "F_5", "F_6", "F_7", "F_8", "F_9"];
@@ -1058,8 +1057,9 @@ function doTone(){
 
 function clickMe(quality){
     document.getElementById('main').classList.replace('visible', 'clicked'); 
-    document.getElementById('particles').classList.add('visible'); 
+    document.getElementById('particle_canvas').classList.replace('clicked', 'visible'); 
     go(quality.innerText);
-    doTone();
     Tone.Transport.toggle();
 }
+
+doTone();
