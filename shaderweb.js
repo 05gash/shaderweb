@@ -581,7 +581,7 @@ async function go(quality){
 
 		//set uniforms
 		var colourLoc = gl.getUniformLocation(shaderProgram, "colour");
-		gl.uniform4fv(colourLoc, ob.colour.elements);
+		gl.uniform4fv(colourLoc, ob.colour);
 
 		var widthLoc = gl.getUniformLocation(shaderProgram, "width");
 		gl.uniform1fv(widthLoc, [ob.width]);
@@ -683,7 +683,7 @@ async function go(quality){
 	}
 
 	/* set up our transform feedback shit*/
-	renderObjects = renderObjects.concat([getSquareObject(NUM_INSTANCES, $V([0.8, 0.5, 0.5, 1.0]), 0.0333)]);
+	renderObjects = renderObjects.concat([getSquareObject(NUM_INSTANCES, [0.8, 0.5, 0.5, 1.0], 0.0333)]);
 
 	// -- Init Vertex Array
 	var OFFSET_LOCATION = 0;
