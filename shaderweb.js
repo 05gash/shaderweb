@@ -761,6 +761,9 @@ async function go(quality){
 		var mouseLoc = gl.getUniformLocation(transformProgram, "mouseVel");
 		gl.uniform2fv(mouseLoc, mouseVel);
 
+		var noiseFreqLoc = gl.getUniformLocation(transformProgram, "noiseFrequency");
+		gl.uniform1fv(noiseFreqLoc, [this.noiseFrequency]);
+
 		gl.bindVertexArray(sourceVAO);
 		gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, destinationTransformFeedback);
 
@@ -853,30 +856,32 @@ async function go(quality){
 		gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 	}
 
-	this.focalLength = .33;
-	this.planeInFocus = 0.4;
+	this.focalLength = .9;
+	this.planeInFocus = .6;
 
 	this.boundsLow = .26;
 	this.boundsHi = 3.0;
 	this.cutoffParam = 0.08;
+	this.noiseFrequency = 1.0;
 	const gui = new dat.GUI();
 	var transformFolder = gui.addFolder('transform');
 	transformFolder.add(this, 'boundsLow', 0, 3);
 	transformFolder.add(this, 'boundsHi', 0, 3);
 	transformFolder.add(this, 'cutoffParam', 0, 1);
+	transformFolder.add(this, 'noiseFrequency', 0, 20);
 	var dof = gui.addFolder('dof');
 	dof.add(this, 'aperture');
-	dof.add(this, 'focalLength', 0., 5.);
-	dof.add(this, 'planeInFocus', 0.0, 3.);
+	dof.add(this, 'focalLength', 0., 1.);
+	dof.add(this, 'planeInFocus', 0.0, 1.);
 
 	this.fov = 1.6;
 	this.lookAtZ = 0.;
 	this.near = 1.;
 	this.far = 20.;
-	cameraAnimations = anim_const("length", 10)
+	cameraAnimations = anim_const("length", 8)
 		.seq(anim_const("phi", 1.4))
 		.seq(anim_const("theta", 0))
-		.seq(anim_const("lookAtX", -.5))
+		.seq(anim_const("lookAtX", -.2))
 		.seq(anim_const("lookAtY", 0.5))
 		.seq(
 			anim_interpolated(ease_cubic, "length", 4, 40)

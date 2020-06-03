@@ -8,6 +8,8 @@ layout(location = COLOUR_LOCATION) in vec3 colour;
 
 uniform float iTime;
 
+uniform float noiseFrequency;
+
 #define pi 3.141592
 
 // Some useful functions
@@ -173,6 +175,6 @@ float snoise(vec3 v){
 
 float getFlowField(vec3 p){
 	float seg = floor(float(gl_VertexID)/20403.);
-	p = p + seg;
+	p = noiseFrequency*p + seg;
 	return snoise(p + snoise(p));
 }
