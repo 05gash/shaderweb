@@ -1,10 +1,6 @@
 #version 300 es
-#define OFFSET_LOCATION 0
-#define POSITION_LOCATION 1
-#define COLOUR_LOCATION 2
-layout(location = OFFSET_LOCATION) in vec4 coordinates;
+#define POSITION_LOCATION 0
 layout(location = POSITION_LOCATION) in vec3 null_position;
-layout(location = COLOUR_LOCATION) in vec3 colour;
 
 uniform float iTime;
 

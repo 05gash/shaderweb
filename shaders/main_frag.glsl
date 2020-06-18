@@ -1,12 +1,11 @@
-uniform vec3 iResolution;
-uniform float iTime;
+uniform vec3 iResolution; uniform float iTime;
 uniform float width;
 
-in vec3 out_col;
+uniform sampler2D frame;
+
 in vec2 texCoords;
 
 out vec4 fragColour;
-// *TODO* uniform samplerXX iChannel;
 
 // Some useful functions
 vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -82,20 +81,11 @@ float snoise(vec2 v) {
 	return 130.0 * dot(m, g);
 }
 
-float getCoverage(){
-	float dist = (length(texCoords - vec2(.5))); 
-	float anti;
-	anti = fwidth(dist);
-	float boundary = 0.44;
-	float blend = smoothstep(boundary + anti, boundary - anti, dist);
-	return blend;
-}
-
 float noise(float x){
 	return fract(sin(x)*100000.);
 }
 
 void main(void) {
-	fragColour.xyz = out_col*getCoverage();
-	fragColour += 0.7*fragColour*noise(texCoords.x*104. + texCoords.y*1231. + iTime);
+	vec3 prev = texture(frame, texCoords).xyz;
+	fragColour.xyz = vec3(snoise(texCoords) + prev);
 }
