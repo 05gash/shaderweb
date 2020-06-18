@@ -1,5 +1,5 @@
-function getShader(name){
-    const uri = 'shaderweb/shaders/' + name;
+function getShader(name, project){
+    const uri = 'shaderweb/shaders/' + project + '/' + name;
     console.log('uri: ' + uri);
     return fetch(uri)
         .then(
@@ -22,19 +22,17 @@ function getModel(name){
  * each represents a render pass. The main buffer uses the screen as a rendertarget
  */
 
-async function getShaders(name){
+async function getShaders(name, project){
     const shaderNames = ['frag', 'vert'];
-    const shaderVals = await Promise.all(shaderNames.map(shaderType => getShader(name + '_' + shaderType + '.glsl')));
+    const shaderVals = await Promise.all(shaderNames.map(shaderType => getShader(name + '_' + shaderType + '.glsl', project)));
     const shaders = shaderNames.map( (name, index) => ({name : name, shader: shaderVals[index]}) );
     return shaders
 }
 
 async function go(){
     function getUrlParameter(name) {
-        name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
-        var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
-        var results = regex.exec(location.search);
-        return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+        var url = new URL(window.location.href);
+        return url.searchParams.get(name);
     };
 
     function doCheck(shader, source){
@@ -55,7 +53,8 @@ async function go(){
         var fragCommonCode = commonShaders.find( shader => shader.name == 'frag');
         fragCommonCode = fragCommonCode!=undefined ? fragCommonCode.shader : "";
 
-        var shaders = await getShaders(name);
+        var project = getUrlParameter('pr');
+        var shaders = await getShaders(name, project);
         var vertCode = vertCommonCode + shaders.find( shader => shader.name == 'vert').shader;
 
         //Create a vertex shader object
@@ -138,8 +137,8 @@ async function go(){
         textures[fboIdx] = gl.createTexture();
         framebuffers[fboIdx] = gl.createFramebuffer();
         gl.bindTexture(gl.TEXTURE_2D, textures[fboIdx]);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, FRAMEBUFFER_SIZE.x, FRAMEBUFFER_SIZE.y, 0, gl.RGBA, gl.FLOAT, null);
         gl.bindTexture(gl.TEXTURE_2D, null);
         gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[fboIdx]);
@@ -153,11 +152,9 @@ async function go(){
         doFBOSetup(i);
     }
 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-
     /* Create and compile Shader programs */
 
-    commonShaders = await getShaders("common");
+    commonShaders = await getShaders("common", getUrlParameter("pr"));
     //NOTE: we're defining our sdf as having a boundary at width
     // Use the combined shader program object
     shaderProgram = await getShaderProgram("main", commonShaders);
@@ -278,91 +275,107 @@ async function go(){
         }
     }
 
-function doFullscreenQuad(timeMillis){
-    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[readingFBO]);
-    gl.useProgram(shaderProgram);	
-
-    var resolutionLoc = gl.getUniformLocation(shaderProgram, "iResolution");
-    gl.uniform3fv(resolutionLoc, [canvas.width, canvas.height, 0.0]); 
-    var timeLoc = gl.getUniformLocation(shaderProgram, "iTime");
-    gl.uniform1fv(timeLoc, [timeMillis]);
-
-    // Draw the triangle
-    gl.bindTexture(gl.TEXTURE_2D, textures[(readingFBO + 1) % 2]);
-    //set uniforms
-    var textureLoc = gl.getUniformLocation(shaderProgram, "frame");
-    gl.uniform1i(textureLoc, textures[(readingFBO + 1) % 2]);
-
-    gl.bindVertexArray(vertexArrays[currentSourceIdx]);
-
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-}
-
-function doPostProcess(){
-    //we need to: 
-    //set up our texture for post DONE
-    //set up our shader program for post DONEISH
-    //bind the texture in as a uniform to the pass
-    //draw a fullscreen quad
-    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[readingFBO])
-    gl.useProgram(postProgram);	
-
-    gl.bindTexture(gl.TEXTURE_2D, textures[(readingFBO + 1) + 2]);
-
-    //set uniforms
-    var textureLoc = gl.getUniformLocation(postProgram, "frame");
-    gl.uniform1i(textureLoc, textures[(readingFBO + 1) + 2]);
-
-    gl.bindVertexArray(vertexArrays[currentSourceIdx]);
-
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    function readingBuffer()
+    {
+        return readingFBO;
+    }
+    function writingBuffer(){
+        return (readingBuffer() + 1) % 2;
+    }
     
-    readingFBO = (readingFBO + 1) + 2;
-}
+    var frameNo = 0;
 
-function chooseBetween(min, max){
-    return min + Math.random()*(min-max);
-}
+    function doFullscreenQuad(timeMillis){
+        gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[writingBuffer()]);
+        gl.clearBufferfv(gl.COLOR, 0, [0.0, 0.0, 0.0, 1.0]);
+        // Clear the color buffer bit
+        gl.clear(gl.COLOR_BUFFER_BIT);
 
-var travelTime = 30;
-function addDistanceInTime(dist){
-    const rtn = dist;
-    if(Math.random() > 0.5){
-        return -rtn;
+        gl.useProgram(shaderProgram);	
+
+        var resolutionLoc = gl.getUniformLocation(shaderProgram, "iResolution");
+        gl.uniform3fv(resolutionLoc, [canvas.width, canvas.height, 0.0]); 
+        var timeLoc = gl.getUniformLocation(shaderProgram, "iTime");
+        gl.uniform1fv(timeLoc, [timeMillis]);
+
+        var iFrameLoc = gl.getUniformLocation(shaderProgram, "iFrame");
+        gl.uniform1i(iFrameLoc, frameNo);
+
+        // Draw the triangle
+        gl.bindTexture(gl.TEXTURE_2D, textures[readingBuffer()]);
+        //set uniforms
+        var textureLoc = gl.getUniformLocation(shaderProgram, "frame");
+        gl.uniform1i(textureLoc, textures[readingBuffer()]);
+
+        gl.bindVertexArray(vertexArrays[currentSourceIdx]);
+
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
-    else{
-        return rtn;
+
+    function doPostProcess(){
+        //we need to: 
+        //set up our texture for post DONE
+        //set up our shader program for post DONEISH
+        //bind the texture in as a uniform to the pass
+        //draw a fullscreen quad
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+        gl.useProgram(postProgram);	
+
+        gl.bindTexture(gl.TEXTURE_2D, textures[writingBuffer()]);
+
+        //set uniforms
+        var textureLoc = gl.getUniformLocation(postProgram, "frame");
+        gl.uniform1i(textureLoc, textures[readingBuffer()]);
+
+        gl.bindVertexArray(vertexArrays[currentSourceIdx]);
+
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+        readingFBO = writingBuffer();
+        frameNo = frameNo + 1;
     }
-}
 
-function renderLoop(){
-    resize(canvas);
-    var d = new Date();
-    var millis = (new Date()).getTime();
-    var timeMillis = (millis-start)/1000.0;
+    function chooseBetween(min, max){
+        return min + Math.random()*(min-max);
+    }
 
-    // Enable the depth test
-    gl.disable(gl.DEPTH_TEST); 
+    var travelTime = 30;
+    function addDistanceInTime(dist){
+        const rtn = dist;
+        if(Math.random() > 0.5){
+            return -rtn;
+        }
+        else{
+            return rtn;
+        }
+    }
 
-    // Clear the color buffer bit
-    gl.clear(gl.COLOR_BUFFER_BIT);
+    function renderLoop(){
+        resize(canvas);
+        var d = new Date();
+        var millis = (new Date()).getTime();
+        var timeMillis = (millis-start)/1000.0;
 
-    // Set the view port
-    gl.viewport(0,0,canvas.width,canvas.height);
+        // Enable the depth test
+        gl.disable(gl.DEPTH_TEST); 
 
-    // Pass 1
-    //gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
-    gl.clearBufferfv(gl.COLOR, 0, [0.0, 0.0, 0.0, 1.0]);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE);
-    // DO UNIFORMS
-    gl.useProgram(shaderProgram);
+        gl.clearBufferfv(gl.COLOR, 0, [0.0, 0.0, 0.0, 1.0]);
+        // Clear the color buffer bit
+        gl.clear(gl.COLOR_BUFFER_BIT);
 
-    doFullscreenQuad(timeMillis);
-    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
-    doPostProcess();
+        // Set the view port
+        gl.viewport(0,0,canvas.width,canvas.height);
 
-    window.setTimeout(renderLoop, 1000.0/60.0);
-}
-renderLoop();
+        // Pass 1
+        //gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+        //gl.enable(gl.BLEND);
+        //gl.blendFunc(gl.ONE, gl.ONE);
+        // DO UNIFORMS
+        gl.useProgram(shaderProgram);
+
+        doFullscreenQuad(timeMillis);
+        doPostProcess();
+        window.requestAnimationFrame(renderLoop);
+    }
+    window.requestAnimationFrame(renderLoop);
 }
