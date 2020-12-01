@@ -117,32 +117,32 @@ float sdVerticalCapsule( vec3 p, float h, float r )
   return length( p ) - r;
 }
 
-float foot(vec3 p){
-    vec3 op;
-    float d = 1.0;
-    op = p;
-    for (int i = 0; i<3; i++){
-        p.yx *= rotmat(1./2.);
-        d = smin(sdVerticalCapsule(p, .3, 0.04), d, 0.01);
-    }
-    return d;
-}
-
 float sceneDist(vec3 p)
 {
     vec3 op=p;
     
-    float d = p.y;
+    float d = 1000.;//p.y;
     p.y-=1.5;
+
+    // foot 
+    op = p;
+    for (int i = 0; i<3; i++){
+        d = smin(sdVerticalCapsule(p, .3, 0.04), d, 0.01);
+        p.yx *= rotmat(1./2.);
+    }
+    p = op;
+    p.yx *= rotmat(1./2.);
+    d = smax(d, -p.y+0.03, 0.03);
+    p = op;
 
     // torso back
     //d=min(d,length(p*vec3(1,0.8,1))-1.);
+    d = min(d, -p.y + 1.5);
     
-    d = smin(d,foot(p), 0.2);
+    //d = smin(d,foot(p), 0.2);
 
     // torso front
     //d=min(d,torsoFront(p));
- 
 
     return min(d,10.);
 }
